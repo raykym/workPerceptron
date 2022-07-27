@@ -1,0 +1,25 @@
+class Util {
+    static method onedinnersum : float ($input : float[] , $waits : float[]) {
+        # 2つの配列リファレンスを受け取って、内積を足し合わせて返す
+        my $total = 0;
+        for ( my $i = 0; $i < @$input; $i++) {
+            $total +=  ($input->[$i] * $waits->[$i]);
+        }
+
+        return $total;
+    }
+
+
+    static method map_learnsimple : float[] ($delta : float , $waits : float[]) {
+
+        # map { $_ += ($delta / $_) } @waits の置き換え
+
+        for ( my $i = 0; $i < @$waits; $i++) {
+
+            $waits->[$i] += ( $delta / $waits->[$i] );
+        }
+
+        return $waits;
+    }
+
+}
