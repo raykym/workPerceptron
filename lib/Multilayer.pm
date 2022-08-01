@@ -18,6 +18,10 @@ use Scalar::Util qw/ weaken /;
 use Time::HiRes qw / time /;
 use feature 'say';
 
+use FindBin;
+use lib "$FindBin::Bin";
+use Perceptron;
+
 sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;

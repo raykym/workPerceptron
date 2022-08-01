@@ -18,7 +18,7 @@ use Data::Dumper;
 use Data::Dumper;
 
 use lib './lib';
-use Perceptron;
+#use Perceptron;
 use Multilayer;
 
 #use Scalar::Util qw/ weaken /;
