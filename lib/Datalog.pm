@@ -57,21 +57,16 @@ sub addlog {
     my $self = shift;
 =pod
     # ARGV layer data dump
-    $array = [
-            { 
-              waits => [ 1 , 2, 3 ,4 ],
-              bias => 23,
+    $array ={ 
+              waits => $new_layerwaits,
+              bias => $new_layerbias,
             },
-            { 
-              waits => [ 1 , 2, 3 ,4 ],
-              bias => 23,
-	    }  
-             ];
+             
 =cut
 
     if (@_) {
-        if ($_[0] =~ /ARRAY/ ) {
-            my $data_strings = Dumper $_[0];
+        if (defined $_[0]) {
+            my $data_strings = $_[0];
 
             my $insert_sth = $self->{dbh}->prepare("insert into $self->{table_name} (data) values (?)");
                $insert_sth->execute($data_strings);        

@@ -11,7 +11,7 @@ use Multilayer;
 subtest 'methods check' => sub {
     my $obj = Multilayer->new;
 
-    can_ok($obj , qw/ new layer_init takeover disp_waits dump_structure learn stat input calc_multi /);
+    can_ok($obj , qw/ new layer_init takeover disp_waits dump_structure learn stat input calc_multi datalog_name /);
 
 };
 

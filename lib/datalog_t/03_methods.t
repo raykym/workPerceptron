@@ -6,6 +6,8 @@ use FindBin;
 use lib "$FindBin::Bin/..";
 use Datalog;
 
+use Data::Dumper;
+
 
 subtest 'methods check' => sub {
     my $obj = Datalog->new;
@@ -18,26 +20,29 @@ subtest 'addlog method input check' => sub {
     my $obj = Datalog->new;
     my $array = [
                     {
-                        bias => 1 ,
+                        bias => [] ,
                         waits => [ 1 , 2, 3 , 4 , 5 ],
 		    },
                     {
                         waits => [ 0.1 , 0.23 , 0.93 ],
-			bias => 34,
+			bias => [],
 		    }
                ];
+    my $array_strings = Dumper $array;
 
-    ok ( $obj->addlog($array) , 'input array' );
+    ok ( $obj->addlog($array_strings) , 'input array' );
 
     my $hash = {
-	         waits => [ 1 , 2 , 3, 4 , 5 ],
-		 bias => 344,
+	         waits => 'array data object',
+		 bias => 'array data object',
 	       };
-    dies_ok ( sub { $obj->addlog($hash)} , 'input hash' );
+    my $hash_strings = Dumper $hash;
+
+    ok ( $obj->addlog($hash) , 'input hash' );
 
     my $scalar = 20;
 
-    dies_ok ( sub { $obj->addlog($scalar)} , 'input scalar' );
+    ok ( $obj->addlog($scalar) , 'input scalar' );
 
 };
 

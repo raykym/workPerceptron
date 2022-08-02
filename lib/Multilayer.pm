@@ -21,6 +21,7 @@ use feature 'say';
 use FindBin;
 use lib "$FindBin::Bin";
 use Perceptron;
+use Datalog;
 
 sub new {
     my $proto = shift;
@@ -35,6 +36,7 @@ sub new {
        $self->{layer_member} = undef; # 層内のノード数
        $self->{input_count} = undef; # ノードへの入力数
        $self->{learn_rate} = undef; # 学習率を全体反映させる
+       $self->{initdata} = undef;
 
        $self->{stat} = ""; # モジュールのステータス
                            # layer_inited : 初期化済  ->learn()　が動作する
@@ -43,6 +45,9 @@ sub new {
        $self->{input} = undef ;
        $self->{learn_limit} = 10;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
+
+       $self->{datalog_name} = undef; # Datalog db file name
+       $self->{datalog} = undef;
 
        bless $self , $class;
 
@@ -309,6 +314,8 @@ sub learn {
     my $debug = 0; # 0: off 1: on
     my $hand = 0; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
 
+    $self->datalog_init(); 
+
     # チェック比較時に利用する配列
     my $fillARRAY = [];
     for my $l ( 0 .. $self->{layer_count} ){
@@ -390,6 +397,7 @@ sub learn {
 		print Dumper $old_layerwaits if $debug == 1;
 
 		my $new_layerwaits = [];
+		my $new_layerbias = [];
 		my $backprobacation = [];
                 # 出力層から順に処理する カウントダウンループ  l:レイヤー n:ノード w: wait入力層とその他でループが違う
 		for (my $l=$self->{layer_count}; $l>=0; $l--) {
@@ -474,6 +482,7 @@ sub learn {
 			    my $bias = $self->{layer}->[$l]->[$n]->bias();
 			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $out->[$l]->[$n] * $out->[$l-1]->[$n]); 
 			    $self->{layer}->[$l]->[$n]->bias($tmp);
+			    $new_layerbias->[$l]->[$n] = $tmp;
                             
                             undef $rmp;
 			    undef $bias;
@@ -490,6 +499,7 @@ sub learn {
                             }
 			    my $tmp = $bias - ( $learn_rate * $theta * $iota * 1 ); # biasなので重み付けは1
                             $self->{layer}->[$l]->[$n]->bias($tmp);
+			    $new_layerbias->[$l]->[$n] = $tmp;
 
 			    undef $mp;
 			    undef $bias;
@@ -536,6 +546,19 @@ sub learn {
                         $self->{layer}->[$l]->[$n]->waits($new_layerwaits->[$l]->[$n]);
                     }
 		}
+
+		my $new_structure = { 
+			              initdata => $self->{initdata},
+			              waits => $new_layerwaits,
+			              bias => $new_layerbias,
+			            }; 
+		my $new_structure_strings = Dumper $new_structure;
+
+		$self->{datalog}->addlog($new_structure_strings);
+
+		undef $newstructure;
+		undef $new_layerwaits;
+		undef $new_layerbias;
 
 		&::Logging("DEBUG: loop $loop Change waits value  ------------------------") if $hand == 1;
 		&::Logging("DEBUG: loop $loop Retry! $sample_count ------------------------") if $debug == 1;
@@ -685,6 +708,31 @@ sub calc_multi {
 
     # ARRAY ref
     return $out;
+}
+
+sub datalog_name {
+    my $self = shift;
+
+    if (@_) {
+        if ($_[0] eq "" ) {
+            croak "no input Error!";
+	} else {
+            $self->{datalog_name} = $_[0];
+	}
+
+    } else {
+        croak "no input Error!";
+    }
+}
+
+sub datalog_init {
+    my $self = shift;
+
+    if ( defined $self->{datalog_name} ) {
+        $self->{datalog} = Datalog->new($self->{datalog_name});
+    } else {
+        $self->{datalog} = Datalog->new;
+    }
 }
 
 1;

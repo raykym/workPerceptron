@@ -45,7 +45,8 @@ sub Logging {
 		    # あえて大きな数値を入れて大体の感じでXORを表現する
 		    # 2層構造のXORは最低100を入力しないと学習出来ない
 		    #
-     my $multi_learndata_XORgate = [ { 
+     my $multi_learndata_XORgate = [
+	              { 
 		        class => [ 1 ],
 		        input => [ 1000 , 1000 ]
 		      },	
@@ -60,7 +61,23 @@ sub Logging {
 		      {
 			class => [ 1 ],
 			input => [ 0 , 0 ]
-		      }
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 100 , 100 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 400 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 300 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 100 , 100 ]
+		      },
                     ];
 
 
