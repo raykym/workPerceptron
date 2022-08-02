@@ -15,6 +15,15 @@ sub new {
     my $class = ref $proto || $proto;
 
     my $self = {};
+    if (@_) {
+        if ($_[0] ne "" ) {
+            $self->{filename} = $_[0] || 'multilayer' ;
+	} else {
+            croak "file name error";
+	}
+    }
+
+       $self->{filename} ||= 'multilayer' ;
        $self->{table_name} = "";
        $self->{dbh} = "";
 
@@ -34,7 +43,7 @@ sub _init {
        $dt =~ tr /./_/;
        $self->{table_name} = "table_$dt";    
 
-       $self->{dbh} = DBI->connect("dbi:SQLite:dbname=multilayer.sqlite3" , undef , undef , { 
+       $self->{dbh} = DBI->connect("dbi:SQLite:dbname=$self->{filename}.sqlite3" , undef , undef , { 
 		           AutoCommit => 1,
 			   RaiseError => 1,
 			   sqlite_see_if_its_a_number => 1
