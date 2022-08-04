@@ -60,6 +60,8 @@ sub addlog {
     $array ={ 
               waits => $new_layerwaits,
               bias => $new_layerbias,
+	      initdata => $initdata,
+	      out => $outdata,
             },
              
 =cut

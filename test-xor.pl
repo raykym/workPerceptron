@@ -48,22 +48,6 @@ sub Logging {
      my $multi_learndata_XORgate = [
 	              { 
 		        class => [ 1 ],
-		        input => [ 1000 , 1000 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 1000 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 1000 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
 		        input => [ 100 , 100 ]
 		      },	
 		      {
@@ -78,144 +62,15 @@ sub Logging {
 			class => [ 1 ],
 			input => [ 0 , 0 ]
 		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 200 , 200 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 200 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 200 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 300 , 300 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 300 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 300 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 400 , 400 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 400 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 400 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 500 , 500 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 500 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 500 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 600 , 600 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 600 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 600 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 700 , 700 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 700 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 700 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 800 , 800 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 800 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 800 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-	              { 
-		        class => [ 1 ],
-		        input => [ 900 , 900 ]
-		      },	
-		      {
-		        class => [ 0 ],
-			input => [ 0 , 900 ]
-		      },
-		      {
-		        class => [ 0 ],
-			input => [ 900 , 0 ]
-		      },
-		      {
-			class => [ 1 ],
-			input => [ 0 , 0 ]
-		      },
-                    ];
-
+	              ];
 
     # ２層パーセプトロンを構成して、XOR回路を学習させる
     # 何回か動かすと何故か失敗することがある。。。？
 
     my $structure = { 
-	              layer_member  => [ 1 , 0 ],
+	              layer_member  => [ 0 , 0 , 0 , 0 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.034
+		      learn_rate => 0.34
 	            };
 
    my $datalog = Datalog->new();
@@ -227,7 +82,7 @@ sub Logging {
 
        $multilayer->disp_waits();
 
-       $multilayer->datalog_transaction('on');
+       $multilayer->datalog_transaction('on'); #datalogをトランザクションモードで高速化する
 
        $multilayer->learn($multi_learndata_XORgate);
 

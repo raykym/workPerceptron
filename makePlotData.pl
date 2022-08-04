@@ -171,6 +171,9 @@ sub plotdata {
     #open (my $gp , '|-' , 'gnuplot') or die 'no gnuplot';
     open (my $gp , '|-' , 'gnuplot -persist') or die 'no gnuplot'; # オプションを付けないとグラフが消える
 
+    #say $gp "set xrange [ 500 : 500] ";
+    #say $gp "set yrange [ 500 : 500 ]";
+
     my @pfunc;
     for my $l ( 0 .. $layer_count ) {
         for my $n ( 0 .. $pice_data->{initdata}->{layer_member}->[$l] ) {
@@ -191,4 +194,26 @@ sub plotdata {
     undef @pfunc;
     undef $func_strings;
 
+}
+
+sub dumpdata {
+    my $self = shift;
+    # set count of structure data number
+
+    my $set_count = undef;
+    if (@_) {
+        if ( $_[0] =~ /[0-9]+/ ) {
+            $set_count = $_[0];
+	} else {
+            croak "input error";
+	}
+    } else {
+        croak "no number...";
+    }
+
+    my @tabledata = @{$self->{tabledata}}; # table all data
+    
+    my $pice_data = $self->{tabledata}->[$set_count];
+    
+    print Dumper $pice_data;
 }

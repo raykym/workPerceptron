@@ -43,7 +43,7 @@ sub new {
                            # learned :　学習済   ->calc_multi()が動作する
 			   #
        $self->{input} = undef ;
-       $self->{learn_limit} = 10;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
+       $self->{learn_limit} = 10000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
 
        $self->{datalog_name} = undef; # Datalog db file name
@@ -314,7 +314,7 @@ sub learn {
     } 
 
     my $debug = 0; # 0: off 1: on
-    my $hand = 1; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
+    my $hand = 0; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
 
     $self->datalog_init(); 
 
@@ -335,19 +335,18 @@ sub learn {
 
         my $sample_flg = 1;
 	my $sample_count = 0;
-        while ( $sample_flg ) {   # simpleの時と違ってループは不要だった？ 偏微分は数回で収束してしまう
+        while ( $sample_flg ) {  
 
             if ($sample_count >= $self->{learn_limit} ) {
                 &::Logging("learn limit over!");
 		$sample_flg = 0;
-             #$self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 		exit;
 	    }
             $sample_count++;
 
             &::Logging("Loop: $loop start ------------------") if $debug == 1;
 
-	    #my $out = []; #3次元に成るように各ノードの出力結果  $out->[レイヤー]->[ノード]
+	    #my $out = []; #3階層に成るように各ノードの出力結果  $out->[レイヤー]->[ノード]
 
 	    $self->{tmp} = [];
 	    @{$self->{tmp}} = @{$sample->{input}}; # デリファレンスでリークを回避
@@ -369,7 +368,6 @@ sub learn {
 
 	    if ($sampleclassstring eq $outstring) {
                # 出力結果が一致したら
-	       # 一致いしないが、重みが更新されず変化なしでスルーすると何故か動作する。。。？？？
 
 	       &::Logging("loop: $loop finish!") if $hand == 1;
                $sample_flg = 0;
@@ -419,7 +417,8 @@ sub learn {
                                     $first += $backprobacation->[$l+1]->[$nsum]->[$n]->{first} * $backprobacation->[$l+1]->[$nsum]->[$n]->{second} * $new_layerwaits->[$l+1]->[$nsum]->[$n]; 
 				}
 				# 活性化関数がReLUのケース
-				if ( $out->[$l]->[$n] > 0 ) {
+				my $bias = $self->{layer}->[$l]->[$n]->bias(); 
+				if ( $out->[$l]->[$n] >= $bias ) {
 		                    $second = 1; # 活性化関数 の微分 ReLU関数
 			        } else {
                                     $second = 0;
@@ -443,7 +442,7 @@ sub learn {
 			            $first = $out->[$l]->[$n] - $sample->{class}->[$n];  # 誤差関数の偏微分->今回の出力からクラスラベル差
 				    # Step関数のケース
                                     $second = $out->[$l]->[$n];   # 活性化関数の偏微分 ->出力値そのまま
-                                    $third = $out->[$l-1]->[$n];   #入力から得られた結果の偏微分 -> 前の層からの入力
+                                    $third = $out->[$l-1]->[$w];   #入力から得られた結果の偏微分 -> 前の層からの入力
 				    $backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 次の層の計算で利用される
 
 				    &::Logging("DEBUG: learn_rate: $learn_rate first: $first second: $second third $third ") if $debug == 1;
@@ -458,7 +457,8 @@ sub learn {
                                         $first += $backprobacation->[$l+1]->[$nsum]->[$n]->{first} * $backprobacation->[$l+1]->[$nsum]->[$n]->{second} * $new_layerwaits->[$l+1]->[$nsum]->[$n]; 
 				    }
 				    # ReLU関数の微分
-				    if ( $out->[$l]->[$n] > 0 ) {
+				    my $bias = $self->{layer}->[$l]->[$n]->bias(); 
+				    if ( $out->[$l]->[$n] >= $bias ) {
 		                        $second = 1; # 活性化関数 
 			            } else {
                                         $second = 0;
@@ -470,7 +470,7 @@ sub learn {
                                     my $theta = undef;
 				    my $iota = undef;
                                     for my $node ( 0 .. $self->{layer_member}->[$l+1]) {
-                                       $theta += $backprobacation->[$l+1]->[$node]->[$n]->{first};
+                                       $theta += $backprobacation->[$l+1]->[$node]->[$n]->{first};   # 今の$nが後ろのwaitの添字
 				       $iota += $backprobacation->[$l+1]->[$node]->[$n]->{second};
                                     }
                                     my $tmp = $old_layerwaits->[$l]->[$n]->[$w] - ( $learn_rate * $theta * $iota * $third );
@@ -489,7 +489,7 @@ sub learn {
 			    $self->{layer}->[$l]->[$n]->bias($tmp);
 			    $new_layerbias->[$l]->[$n] = $tmp;
                             
-                            undef $rmp;
+                            undef $tmp;
 			    undef $bias;
 		        } elsif ( $l <= $self->{layer_count} ) {
 			    # 中間層
@@ -506,7 +506,7 @@ sub learn {
                             $self->{layer}->[$l]->[$n]->bias($tmp);
 			    $new_layerbias->[$l]->[$n] = $tmp;
 
-			    undef $mp;
+			    undef $tmp;
 			    undef $bias;
 			}
                         # ノードのwaitsを保持する
@@ -530,7 +530,6 @@ sub learn {
                             for my $w ( 0 .. $self->{input_count}) {
                                 if ( ! defined $new_layerwaits->[$l]->[$n]->[$w] ) {
                                     croak "new_layerwaits undef detected!! l: $l n: $n w: $w";
-				    #  $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 				    exit;
 			        }
                             }
@@ -539,7 +538,6 @@ sub learn {
                             for my $w ( 0 .. $self->{layer_member}->[$l-1] ) {
                                 if ( ! defined $new_layerwaits->[$l]->[$n]->[$w] ) {
                                     croak "new_layerwaits undef detected!! l: $l n: $n w: $w";
-				    #  $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 				    exit;
 			        }
                             }
@@ -558,6 +556,7 @@ sub learn {
 			              initdata => $self->{initdata},
 			              waits => $new_layerwaits,
 			              bias => $new_layerbias,
+				      out => $out,
 			            }; 
 		my $new_structure_strings = Dumper $new_structure;
 
@@ -565,7 +564,7 @@ sub learn {
 		    # トランザクションモード
                     $self->{datalog_count}++;
 		    $self->{datalog}->addlog($new_structure_strings);
-		    if ( $self->{datalog_count} >= 100 ) {
+		    if ( $self->{datalog_count} >= ($self->{learn_limit} / 10) ) {
                         $self->{datalog}->commit();
 			$self->{datalog}->begin_work(); # commitするとautoComitに戻るので、もう一回
                         $self->{datalog_count} = 0;
@@ -688,7 +687,7 @@ sub calc_multi {
         }
     }
 
-    my $out = []; #3次元に成るように各ノードの出力結果  $out->[レイヤー]->[ノード]
+    my $out = []; #3階層に成るように各ノードの出力結果  $out->[レイヤー]->[ノード]
     my @layer = @{$self->{layer}};   # layer内はPerceptronなので、メソッドと変数をを間違えないように
 
     for (my $l=0; $l<=$#layer; $l++) {        
@@ -776,7 +775,7 @@ sub datalog_transaction {
 
 sub DESTROY {
     my $self = shift;
-
+    # exitで終了する場合に対処する
     $self->{datalog}->commit();
 }
 
