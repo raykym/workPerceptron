@@ -43,7 +43,7 @@ sub new {
                            # learned :　学習済   ->calc_multi()が動作する
 			   #
        $self->{input} = undef ;
-       $self->{learn_limit} = 10000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
+       $self->{learn_limit} = 10;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
 
        $self->{datalog_name} = undef; # Datalog db file name
@@ -314,7 +314,7 @@ sub learn {
     } 
 
     my $debug = 0; # 0: off 1: on
-    my $hand = 0; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
+    my $hand = 1; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
 
     $self->datalog_init(); 
 
@@ -340,6 +340,7 @@ sub learn {
             if ($sample_count >= $self->{learn_limit} ) {
                 &::Logging("learn limit over!");
 		$sample_flg = 0;
+             #$self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 		exit;
 	    }
             $sample_count++;
@@ -529,6 +530,7 @@ sub learn {
                             for my $w ( 0 .. $self->{input_count}) {
                                 if ( ! defined $new_layerwaits->[$l]->[$n]->[$w] ) {
                                     croak "new_layerwaits undef detected!! l: $l n: $n w: $w";
+				    #  $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 				    exit;
 			        }
                             }
@@ -537,6 +539,7 @@ sub learn {
                             for my $w ( 0 .. $self->{layer_member}->[$l-1] ) {
                                 if ( ! defined $new_layerwaits->[$l]->[$n]->[$w] ) {
                                     croak "new_layerwaits undef detected!! l: $l n: $n w: $w";
+				    #  $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 				    exit;
 			        }
                             }
@@ -769,6 +772,12 @@ sub datalog_transaction {
     } else {
         croak "input error";
     }
+}
+
+sub DESTROY {
+    my $self = shift;
+
+    $self->{datalog}->commit();
 }
 
 1;

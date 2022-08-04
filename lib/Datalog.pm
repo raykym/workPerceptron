@@ -98,5 +98,11 @@ sub finish_rollback {
     $self->{dbh}->rollback;
 }
 
+sub DESTROY {
+    my $self = shift;
+
+    #  $self->{dbh}->commit();
+}
+
 
 1;
