@@ -79,5 +79,24 @@ sub addlog {
     }
 }
 
+sub begin_work {
+    my $self = shift;
+
+    $self->{dbh}->begin_work;
+}
+
+sub commit {
+    my $self = shift;
+ 
+   $self->{dbh}->commit;
+}
+
+sub finish_rollback {
+    my $self = shift;
+
+    $self->{dbh}->finish;
+    $self->{dbh}->rollback;
+}
+
 
 1;

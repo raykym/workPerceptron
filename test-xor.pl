@@ -68,7 +68,39 @@ sub Logging {
 		      },	
 		      {
 		        class => [ 0 ],
-			input => [ 0 , 400 ]
+			input => [ 0 , 100 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 100 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 200 , 200 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 200 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 200 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 300 , 300 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 300 ]
 		      },
 		      {
 		        class => [ 0 ],
@@ -76,7 +108,103 @@ sub Logging {
 		      },
 		      {
 			class => [ 1 ],
-			input => [ 100 , 100 ]
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 400 , 400 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 400 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 400 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 500 , 500 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 500 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 500 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 600 , 600 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 600 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 600 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 700 , 700 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 700 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 700 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 800 , 800 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 800 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 800 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
+		      },
+	              { 
+		        class => [ 1 ],
+		        input => [ 900 , 900 ]
+		      },	
+		      {
+		        class => [ 0 ],
+			input => [ 0 , 900 ]
+		      },
+		      {
+		        class => [ 0 ],
+			input => [ 900 , 0 ]
+		      },
+		      {
+			class => [ 1 ],
+			input => [ 0 , 0 ]
 		      },
                     ];
 
@@ -98,6 +226,8 @@ sub Logging {
        $multilayer->layer_init($structure);
 
        $multilayer->disp_waits();
+
+       $multilayer->datalog_transaction('on');
 
        $multilayer->learn($multi_learndata_XORgate);
 

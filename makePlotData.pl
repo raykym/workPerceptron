@@ -4,6 +4,7 @@
 # each nodes waits inclination on calc step
 #
 # need multilayer.sqlite3 file default
+#
 
 use Devel::REPL;
 
@@ -128,7 +129,7 @@ sub load_table {
 
     for my $ref (@{$res_arrayref}) {
         for my $text (@{$ref}) {
-            my $VAR1;
+            my $VAR1;    # DumperがVAR1で定義しているので、事前に用意しておく
             eval $text;
             push( @{$self->{tabledata}} , $VAR1 );
         }
@@ -168,7 +169,7 @@ sub plotdata {
     undef @tmp;
 
     #open (my $gp , '|-' , 'gnuplot') or die 'no gnuplot';
-    open (my $gp , '|-' , 'gnuplot -persist') or die 'no gnuplot';
+    open (my $gp , '|-' , 'gnuplot -persist') or die 'no gnuplot'; # オプションを付けないとグラフが消える
 
     my @pfunc;
     for my $l ( 0 .. $layer_count ) {
@@ -176,11 +177,11 @@ sub plotdata {
             my $wait_sum = List::Util::sum @{$pice_data->{waits}->[$l]->[$n]};
             my $bias = $pice_data->{bias}->[$l]->[$n];
        #    print "l: $l n: $n waits_sum: $wait_sum \n";
-	    push (@pfunc , "$wait_sum * x + $bias");
+	    push (@pfunc , "$wait_sum * x + $bias");  # ノード毎に傾きの式を記録する
 	}
     }
 
-    my $func_strings = join ("," , @pfunc );
+    my $func_strings = join ("," , @pfunc ); # カンマ区切りで式を記述する
     
     say $gp "plot $func_strings";
 

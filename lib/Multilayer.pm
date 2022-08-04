@@ -43,11 +43,13 @@ sub new {
                            # learned :　学習済   ->calc_multi()が動作する
 			   #
        $self->{input} = undef ;
-       $self->{learn_limit} = 10;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
+       $self->{learn_limit} = 10000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
 
        $self->{datalog_name} = undef; # Datalog db file name
        $self->{datalog} = undef;
+       $self->{datalog_transaction} = 'off'; # トランザクションモード  off: autocommit on:transaction
+       $self->{datalog_count} = undef; # カウンター用
 
        bless $self , $class;
 
@@ -316,6 +318,8 @@ sub learn {
 
     $self->datalog_init(); 
 
+    $self->{datalog}->begin_work() if $self->{datalog_transaction} eq 'on';
+
     # チェック比較時に利用する配列
     my $fillARRAY = [];
     for my $l ( 0 .. $self->{layer_count} ){
@@ -554,7 +558,19 @@ sub learn {
 			            }; 
 		my $new_structure_strings = Dumper $new_structure;
 
-		$self->{datalog}->addlog($new_structure_strings);
+		if ($self->{datalog_transaction} eq 'on' ) {
+		    # トランザクションモード
+                    $self->{datalog_count}++;
+		    $self->{datalog}->addlog($new_structure_strings);
+		    if ( $self->{datalog_count} >= 100 ) {
+                        $self->{datalog}->commit();
+			$self->{datalog}->begin_work(); # commitするとautoComitに戻るので、もう一回
+                        $self->{datalog_count} = 0;
+		    }
+	        } elsif ($self->{datalog_transaction} eq 'off' ) {
+		    # autoCommit
+		    $self->{datalog}->addlog($new_structure_strings);
+	        }
 
 		undef $newstructure;
 		undef $new_layerwaits;
@@ -593,6 +609,8 @@ sub learn {
 	} # while 
 
     } # for sample 
+
+    $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 
     &::Logging("DEBUG: learn_finish data") if $debug == 1;
     # class毎の学習が完了したか目視用のDump
@@ -712,6 +730,7 @@ sub calc_multi {
 
 sub datalog_name {
     my $self = shift;
+    # DatalogモジュールをMultilayerぁら使うためのメソッド
 
     if (@_) {
         if ($_[0] eq "" ) {
@@ -727,11 +746,28 @@ sub datalog_name {
 
 sub datalog_init {
     my $self = shift;
+    # DatalogモジュールをMultilayerぁら使うためのメソッド
 
     if ( defined $self->{datalog_name} ) {
         $self->{datalog} = Datalog->new($self->{datalog_name});
     } else {
         $self->{datalog} = Datalog->new;
+    }
+}
+
+sub datalog_transaction {
+    my $self = shift;
+
+    if (@_) {
+        if ( $_[0] eq 'off' ) {
+            $self->{datalog_transaction} = 'off';
+	} elsif ( $_[0] eq 'on' ) {
+            $self->{datalog_transaction} = 'on';
+	} else {
+            croak "input error";
+	}
+    } else {
+        croak "input error";
     }
 }
 

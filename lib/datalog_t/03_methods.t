@@ -12,7 +12,7 @@ use Data::Dumper;
 subtest 'methods check' => sub {
     my $obj = Datalog->new;
 
-    can_ok($obj , qw/ new _init addlog /);
+    can_ok($obj , qw/ new _init addlog begin_work commit finish_rollback /);
 
 };
 
