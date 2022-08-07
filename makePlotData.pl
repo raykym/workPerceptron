@@ -162,9 +162,9 @@ sub plotdata {
     
     my $pice_data = $self->{tabledata}->[$set_count];
     
-    #  print Dumper $pice_data;
+    #print Dumper $pice_data;
 
-    my @tmp = @{$pice_data->{initdata}->{layer_member}};
+    my @tmp = @{$pice_data->{layer_init}->{layer_member}};
     my $layer_count = $#tmp;
     undef @tmp;
 
@@ -176,13 +176,21 @@ sub plotdata {
 
     my @pfunc;
     for my $l ( 0 .. $layer_count ) {
-        for my $n ( 0 .. $pice_data->{initdata}->{layer_member}->[$l] ) {
-            my $wait_sum = List::Util::sum @{$pice_data->{waits}->[$l]->[$n]};
-            my $bias = $pice_data->{bias}->[$l]->[$n];
-       #    print "l: $l n: $n waits_sum: $wait_sum \n";
-	    push (@pfunc , "$wait_sum * x + $bias");  # ノード毎に傾きの式を記録する
-	}
-    }
+        for my $n ( 0 .. $pice_data->{layer_init}->{layer_member}->[$l] ) {
+            # 通常はARRAYデータ
+            if ( $pice_data->{waits} =~ /ARRAY/ ) {
+                my $wait_sum = List::Util::sum @{$pice_data->{waits}->[$l]->[$n]};
+                my $bias = $pice_data->{bias}->[$l]->[$n];
+           #    print "l: $l n: $n waits_sum: $wait_sum \n";
+	        push (@pfunc , "$wait_sum * x + $bias");  # ノード毎に傾きの式を記録する
+	    } elsif ($pice_data->{waits} =~ /HASH/ ) {
+		# HASHデータの場合 
+		my $wait_sum = List::Util::sum @{$pice_data->{waits}->{$l}->{$n}};
+                my $bias = $pice_data->{bias}->{$l}->{$n};
+	        push (@pfunc , "$wait_sum * x + $bias");  # ノード毎に傾きの式を記録する
+           } 
+	} # for $n
+    } # for $l
 
     my $func_strings = join ("," , @pfunc ); # カンマ区切りで式を記述する
     

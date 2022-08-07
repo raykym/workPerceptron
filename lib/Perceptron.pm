@@ -24,6 +24,7 @@ sub new {
        $self->{learn_input} = "";
        $self->{limit} = 500;
        $self->{tmp} = undef;
+       $self->{step_sum} = undef;
 
        bless $self , $class;
 
@@ -165,6 +166,8 @@ sub calcStep {
 
     undef @waits;
     undef @input;
+
+    $self->{step_sum} = $sum; # 誤差を求めるために値を記録しておく
 
     # step関数
     if ( $sum >= $self->{bias} ){
@@ -388,6 +391,13 @@ sub learn_simple {
 
    &::Logging("Learn Finish") if $debug == 1;
 
+}
+
+sub step_sum {
+    my $self = shift;
+    # calc_stepの場合、sumの値を記録しておく
+
+    return $self->{step_sum};
 }
 
 sub dummy_method {

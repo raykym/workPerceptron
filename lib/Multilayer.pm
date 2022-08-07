@@ -43,7 +43,7 @@ sub new {
                            # learned :　学習済   ->calc_multi()が動作する
 			   #
        $self->{input} = undef ;
-       $self->{learn_limit} = 10000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
+       $self->{learn_limit} = 100;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
 
        $self->{datalog_name} = undef; # Datalog db file name
@@ -129,7 +129,7 @@ sub takeover {
 
     if (@_) {
         if ($_[0] =~ /HASH/) {
-            if ( exists $_[0]->{biasdump} and $_[0]->{waitsdump} ) {
+            if ( exists $_[0]->{bias} and $_[0]->{waits} ) {
                 $self->{takeover} = $_[0];
 	    } else {
                 croak "Missing data in dump";
@@ -148,8 +148,8 @@ sub takeover {
     for (my $l=0; $l<=$#layer; $l++) {
 	my @nodes = @{$layer[$l]};
         for (my $n=0; $n<=$#nodes; $n++) {
-	    $nodes[$n]->waits($self->{takeover}->{waitsdump}->{$l}->{$n});
-	    $nodes[$n]->bias($self->{takeover}->{biasdump}->{$l}->{$n});
+	    $nodes[$n]->waits($self->{takeover}->{waits}->{$l}->{$n});
+	    $nodes[$n]->bias($self->{takeover}->{bias}->{$l}->{$n});
 	}
     }
     undef @layer;
@@ -257,8 +257,8 @@ sub dump_structure {
     my $dumpdata = { 
                     DateTime => $dt,
                     layer_init => $self->{initdata} ,
-		    waitsdump => $waitsdump,
-		    biasdump => $biasdump,
+		    waits => $waitsdump,
+		    bias => $biasdump,
                     learn_rate => $learn_rate_dump,
                    };
 
@@ -271,11 +271,11 @@ sub dump_structure {
     open (my $fh , '> ./dump_structure.txt');
 
         say $fh "#dump data structure";
-        say $fh "# hash data key 'layer_init' 'waitsdump' 'biasdump' 'learn_rate'";
+        say $fh "# hash data key 'layer_init' 'waits' 'bias' 'learn_rate'";
         say $fh "# layerdata->{layer}->{node} ";
         say $fh "# waitsdump: waits data to node refARRAY";
         say $fh "# layer_init: layer_init set data";
-        say $fh "# biasdump: need set for perceptron";
+        say $fh "# bias: need set for perceptron";
         say $fh "# learn_rate: extra data";
 
         print $fh Dumper($dumpdata);
@@ -318,6 +318,13 @@ sub learn {
 
     $self->datalog_init(); 
 
+    # 初期化データをダンプ形式で記録するハッシュなので構造が違う
+    my $start_waits = $self->dump_structure('check');
+    my $start_waits_strings = Dumper $start_waits;
+    $self->{datalog}->addlog($start_waits_strings);
+    undef $start_waits;
+    undef $start_waits_strings;
+
     $self->{datalog}->begin_work() if $self->{datalog_transaction} eq 'on';
 
     # チェック比較時に利用する配列
@@ -340,7 +347,7 @@ sub learn {
             if ($sample_count >= $self->{learn_limit} ) {
                 &::Logging("learn limit over!");
 		$sample_flg = 0;
-		exit;
+		# exit;
 	    }
             $sample_count++;
 
@@ -400,7 +407,7 @@ sub learn {
 		print Dumper $old_layerwaits if $debug == 1;
 
 		my $new_layerwaits = [];
-		my $new_layerbias = [];
+		my $new_layerbias = [];  # logの為だけに取得 計算上は不要
 		my $backprobacation = [];
                 # 出力層から順に処理する カウントダウンループ  l:レイヤー n:ノード w: wait入力層とその他でループが違う
 		for (my $l=$self->{layer_count}; $l>=0; $l--) {
@@ -552,11 +559,18 @@ sub learn {
                     }
 		}
 
+		# step関数内のsumを記録する 出力層のノードのみ
+                my $step_sums = [];
+		for my $n ( 0 .. $self->{layer_member}->[$self->{layer_count}] ) {
+                    push(@{$step_sums} , $self->{layer}->[$self->{layer_count}]->[$n]->step_sum() );
+		}
+
 		my $new_structure = { 
-			              initdata => $self->{initdata},
+			              layer_init => $self->{initdata},
 			              waits => $new_layerwaits,
 			              bias => $new_layerbias,
 				      out => $out,
+				      step_sum => $step_sums,
 			            }; 
 		my $new_structure_strings = Dumper $new_structure;
 
@@ -612,7 +626,7 @@ sub learn {
 
     } # for sample 
 
-    $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
+    #  $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 
     &::Logging("DEBUG: learn_finish data") if $debug == 1;
     # class毎の学習が完了したか目視用のDump

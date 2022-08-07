@@ -60,9 +60,34 @@ sub addlog {
     $array ={ 
               waits => $new_layerwaits,
               bias => $new_layerbias,
-	      initdata => $initdata,
+	      layer_init => $initdata,
 	      out => $outdata,
             },
+
+    ->dump_structure()
+   $hash = {
+            waits =>  { 1 => { 0 => [ aaaa,   ],
+                             },
+                        0 => { 0 => [ ssss,   ],
+                               1 => [ dddd,  ],
+                             },
+                      },
+            bias => {
+                      1 => { 0 => xxxx,
+                           },
+                      0 => { 0 => yyyy,
+                             1 => xxxx,
+                           }
+                    },
+
+            DateTime => $dt ,
+
+            learn_rate => 0.34,
+
+            layer_init => { layer_member => [ 2 , 1 ...],
+                          input_count => 1 ,
+                         }.
+    }
              
 =cut
 

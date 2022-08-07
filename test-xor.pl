@@ -13,14 +13,14 @@ use feature ':5.13';
 binmode 'STDOUT' , ':utf8';
 
 use Time::HiRes qw/ time /;
-use Data::Dumper;
-use Devel::Size;
-use Devel::Cycle;
+#use Data::Dumper;
+#use Devel::Size;
+#use Devel::Cycle;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
 
-use Perceptron;
+#use Perceptron;
 use Multilayer;
 
 
@@ -68,13 +68,10 @@ sub Logging {
     # 何回か動かすと何故か失敗することがある。。。？
 
     my $structure = { 
-	              layer_member  => [ 0 , 0 , 0 , 0 , 0 ],
+	              layer_member  => [ 1 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.34
+		      learn_rate => 0.05
 	            };
-
-   my $datalog = Datalog->new();
-
 
 
     my $multilayer = Multilayer->new();
@@ -88,6 +85,17 @@ sub Logging {
 
        $multilayer->disp_waits();
 
+       # 学習結果を確認する
+       for my $sample ( @{$multi_learndata_XORgate}) {
+           $multilayer->stat('learned'); # statを強制変更	       
+	   $multilayer->input($sample->{input});    
+           my $ret = $multilayer->calc_multi();
+           say "out: @{$ret->[-1]}  class: @{$sample->{class}} ";
+       }	       
+
+
+
+=pod
        # 大きな数値を入れるとXORの動作をしている
 
        say "input [ 1000 , 1000 ]";
@@ -112,7 +120,6 @@ sub Logging {
         $ret = $multilayer->calc_multi();
        say @{$ret->[-1]};
 
-=pod
 
        say "input [ 1 , 0 ]";
        $multilayer->input([1 , 0 ]);
@@ -130,7 +137,6 @@ sub Logging {
        say @{$ret->[-1]};
 =cut
 
-       my $total_size = Devel::Size::total_size($multilayer);
-
-       Logging("DEBUG: total size: $total_size byte");
+       #my $total_size = Devel::Size::total_size($multilayer);
+       #Logging("DEBUG: total size: $total_size byte");
 
