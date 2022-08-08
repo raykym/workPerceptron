@@ -10,7 +10,7 @@ use Perceptron;
 subtest 'methods check' => sub {
     my $obj = Perceptron->new;
 
-    can_ok($obj , qw/ new bias waits input calc calcReLU  calcStep waitsinit learn_rate learn_simple step_sum dummy_method /);
+    can_ok($obj , qw/ new bias waits input calc calcReLU  calcStep calcSigmoid waitsinit learn_rate learn_simple calc_sum dummy_method /);
 
 };
 

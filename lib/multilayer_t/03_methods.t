@@ -141,8 +141,8 @@ subtest 'takeover method check' => sub {
     my $nowstructure = $obj->dump_structure('check');
 
     # 同じ位置のデータを比較する
-    my $dumpstrings = join ("" , @{$dumpdata->{waitsdump}->{0}->{0}});
-    my $nowstrings = join ("" , @{$nowstructure->{waitsdump}->{0}->{0}});
+    my $dumpstrings = join ("" , @{$dumpdata->{waits}->{0}->{0}});
+    my $nowstrings = join ("" , @{$nowstructure->{waits}->{0}->{0}});
 
     is( $dumpstrings , $nowstrings  , 'load waits and bias data');
 

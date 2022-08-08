@@ -24,7 +24,7 @@ sub new {
        $self->{learn_input} = "";
        $self->{limit} = 500;
        $self->{tmp} = undef;
-       $self->{step_sum} = undef;
+       $self->{calc_sum} = undef;
 
        bless $self , $class;
 
@@ -141,6 +141,8 @@ sub calcReLU {
     undef @waits;
     undef @input;
 
+    $self->{calc_sum} = $sum; 
+
     # ReLU関数
     if ( $sum >= $self->{bias} ){
         return $sum;
@@ -167,12 +169,42 @@ sub calcStep {
     undef @waits;
     undef @input;
 
-    $self->{step_sum} = $sum; # 誤差を求めるために値を記録しておく
+    $self->{calc_sum} = $sum; 
 
     # step関数
     if ( $sum >= $self->{bias} ){
         return 1;
     } elsif ( $sum < $self->{bias} ) {
+        return 0;
+    }
+}
+
+sub calcSigmoid {
+    my $self = shift;
+
+    my @waits = @{$self->{waits}};
+    my @input = @{$self->{input}};
+
+    if ($#waits != $#input ) {
+        croak "wait input miss match!  $#waits | $#input";
+	exit;
+    }
+
+    my $sum = 0;
+
+    $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+
+    undef @waits;
+    undef @input;
+
+    $self->{calc_sum} = $sum; 
+
+    # sigmoid関数
+    my $sig = 1 / ( 1 + exp(-$sum) );
+
+    if ( $sig >= $self->{bias} ){
+        return 1;
+    } elsif ( $sig < $self->{bias} ) {
         return 0;
     }
 }
@@ -209,8 +241,14 @@ sub waitsinit {
 	    }
             $self->{waits} = \@waits;
 
-            my $rand = rand(1);
-            $self->bias($rand);
+
+	    if ( defined $node_count ) {
+                my $rand = rand( 2 / $node_count );
+                $self->bias($rand);
+	    } else {
+                my $rand = rand(1);
+                $self->bias($rand);
+            }
 
             return;
         }
@@ -393,11 +431,11 @@ sub learn_simple {
 
 }
 
-sub step_sum {
+sub calc_sum {
     my $self = shift;
-    # calc_stepの場合、sumの値を記録しておく
+    # calc_step, calc_ReLUの場合、sumの値を記録しておく
 
-    return $self->{step_sum};
+    return $self->{calc_sum};
 }
 
 sub dummy_method {

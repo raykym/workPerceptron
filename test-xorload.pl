@@ -56,20 +56,36 @@ sub Logging {
        # dumpしただけで、learnedになっていないので、
        $multilayer->stat('learned');
 
-       $multilayer->input([ 1000 , 1000 ]); 
+       $multilayer->input([ 100 , 100 ]); 
        my  $ret = $multilayer->calc_multi();
-       say "!!!! CHECK: @{$ret->[-1]}  hope: 0 -----"; 
+       say "!!!! CHECK: @{$ret->[-1]}  hope: 1 -----"; 
 
-       $multilayer->input([ 1000 , 0 ]); 
-       $ret = $multilayer->calc_multi();
-       say "!!!! CHECK: @{$ret->[-1]} hope: 1 -----";  
-
-       $multilayer->input([ 0 , 1000 ]); 
-       $ret = $multilayer->calc_multi();
-       say "!!!! CHECK: @{$ret->[-1]} hope: 1 -----";  
-
-       $multilayer->input([ 0 , 0 ]); 
+       $multilayer->input([ 100 , 0 ]); 
        $ret = $multilayer->calc_multi();
        say "!!!! CHECK: @{$ret->[-1]} hope: 0 -----";  
 
+       $multilayer->input([ 0 , 100 ]); 
+       $ret = $multilayer->calc_multi();
+       say "!!!! CHECK: @{$ret->[-1]} hope: 0 -----";  
 
+       $multilayer->input([ 0 , 0 ]); 
+       $ret = $multilayer->calc_multi();
+       say "!!!! CHECK: @{$ret->[-1]} hope: 1 -----";  
+
+       # 単位論理
+
+       $multilayer->input([ 1 , 1 ]); 
+       my  $ret = $multilayer->calc_multi();
+       say "!!!! CHECK: @{$ret->[-1]}  hope: 1 -----"; 
+
+       $multilayer->input([ 1 , 0 ]); 
+       $ret = $multilayer->calc_multi();
+       say "!!!! CHECK: @{$ret->[-1]} hope: 0 -----";  
+
+       $multilayer->input([ 0 , 1 ]); 
+       $ret = $multilayer->calc_multi();
+       say "!!!! CHECK: @{$ret->[-1]} hope: 0 -----";  
+
+       $multilayer->input([ 0 , 0 ]); 
+       $ret = $multilayer->calc_multi();
+       say "!!!! CHECK: @{$ret->[-1]} hope: 1 -----";  

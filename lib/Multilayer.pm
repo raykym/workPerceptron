@@ -23,6 +23,10 @@ use lib "$FindBin::Bin";
 use Perceptron;
 use Datalog;
 
+use utf8;
+binmode 'STDOUT' , ':utf8';
+
+
 sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;
@@ -43,7 +47,7 @@ sub new {
                            # learned :　学習済   ->calc_multi()が動作する
 			   #
        $self->{input} = undef ;
-       $self->{learn_limit} = 100;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
+       $self->{learn_limit} = 2000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
 
        $self->{datalog_name} = undef; # Datalog db file name
@@ -346,6 +350,9 @@ sub learn {
 
             if ($sample_count >= $self->{learn_limit} ) {
                 &::Logging("learn limit over!");
+		my $dump_strings = Dumper $sample;
+		&::Logging("dump : $dump_strings ");
+		undef $dump_strings;
 		$sample_flg = 0;
 		# exit;
 	    }
@@ -362,6 +369,15 @@ sub learn {
 	    my $out = $self->calc_multi('learn');
 
 	    undef $self->{tmp};
+
+            # calc_sumを集計しておく ノード毎の活性化関数前の値
+	    my $calc_sum = [];
+            for my $l ( 0 .. $self->{layer_count} ) {
+                for my $n ( 0 .. $self->{layer_member}->[$l] ) {
+		    my $tmp = $self->{layer}->[$l]->[$n]->calc_sum();
+                    $calc_sum->[$l]->[$n] =  $tmp ;
+                }
+            }
 
 	    # 出力層の結果をsampleのclassラベルと比較する
 	    my $outstring = join ("" , @{$out->[$self->{layer_count}]});
@@ -384,15 +400,25 @@ sub learn {
                 # 結果が一致しなかったら
                 #重み付けの更新 
 
-=pod
-	        #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2  理論的話だったので計算は不要だった。
+	        #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2 
 		my $esum = 0;
 		for my $node ( 0 .. $self->{layer_member}->[-1]) {
-		    $esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ^ 2;
+                        # classラベルをbias値に置き換える
+                        my $switch_bias_value = undef;
+			my $bias = $self->{layer}->[$self->{layer_count}]->[$node]->bias();
+			if ( $sample->{class}->[$node] == 1 ) {
+                            $switch_bias_value = { $sample->{class}->[$node]  => $bias }; # hashで切り替え
+			} elsif ( $sample->{class}->[$node] == 0 ) {
+                            $switch_bias_value = { $sample->{class}->[$node] => 0 };            
+			}
+
+			#$esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ^ 2;  # 多分、活性化関数を含んで勘違いしていた式
+		    $esum += ($calc_sum->[$self->{layer_count}]->[$node] - $switch_bias_value->{$sample->{class}->[$node]} ) ^ 2;
+
+		    &::Logging("DEBUG: calc_sum: $calc_sum->[$self->{layer_count}]->[$node] bias: $switch_bias_value->{$sample->{class}->[$node]} ") if $hand == 1;
 		}
 		$esum = $esum / 2;
-		&::Logging("DEBUG: 誤差関数 $esum");
-=cut
+		&::Logging("DEBUG: 誤差関数 $esum") if $hand == 1;
 
                 # 現在のwaitsを取得する biasを除く
 		my $old_layerwaits = [];  # 3次元配列
@@ -431,14 +457,14 @@ sub learn {
                                     $second = 0;
 				}
 				$third = $sample->{input}->[$w]; # 入力値 ########
-				$backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 次の回の計算で利用される
+				$backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 使わないけれどチェックしているので残している
                                 my $tmp = $old_layerwaits->[$l]->[$n]->[$w] - ( $learn_rate * $backprobacation->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{first} * $backprobacation->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{second} * $third );
                                 push (@{$waits_delta} , $tmp); #調整したwaits
 
 				undef $tmp;
                             } # for 入力層 w #################################
 		        } else {
-                        # 中間層、出力層
+                            # 出力層
 			    for my $w ( 0 .. $self->{layer_member}->[$l-1] ) {   # waitsは順方向ループ 前の層のノード数がwaitsの数
 			        &::Logging("DEBUG: layer: $l node: $n waits: $w") if $debug == 1;
 
@@ -559,19 +585,14 @@ sub learn {
                     }
 		}
 
-		# step関数内のsumを記録する 出力層のノードのみ
-                my $step_sums = [];
-		for my $n ( 0 .. $self->{layer_member}->[$self->{layer_count}] ) {
-                    push(@{$step_sums} , $self->{layer}->[$self->{layer_count}]->[$n]->step_sum() );
-		}
-
 		my $new_structure = { 
 			              layer_init => $self->{initdata},
 			              waits => $new_layerwaits,
 			              bias => $new_layerbias,
-				      out => $out,
-				      step_sum => $step_sums,
+				      node_out => $out,
+				      node_sum => $calc_sum,
 			            }; 
+
 		my $new_structure_strings = Dumper $new_structure;
 
 		if ($self->{datalog_transaction} eq 'on' ) {
@@ -630,6 +651,7 @@ sub learn {
 
     &::Logging("DEBUG: learn_finish data") if $debug == 1;
     # class毎の学習が完了したか目視用のDump
+    &::Logging("class learn check dump self->{learn_finish}") if $hand == 1;
     print Dumper $self->{learn_finish} if $hand == 1;
 
     # class毎に成功しているかチェックする

@@ -5,6 +5,15 @@
 #
 # 高卒でもわかる機械学習　サイトを参考に作成
 #
+# Dataplotを使って作図した結果、どうも過学習になっていると推測した
+# xorの最小構成と考えていた、layer_member [ 1 , 0 ] 構成で学習率をどんどん下げて、ある程度近いところまで行くことがわかった。　
+#
+# 他の方法が無いものか探していると、1986年の論文をそのままC言語で実装したサイトを見つけた。
+# そこでは順伝送でシグモイド関数を利用していた。
+# ReLUの構成では反応が強すぎるのだと、感覚的に思った。
+# そこで、構成を２倍にして、出力層も２個のパーセプトロンで論理を分割したところ、収束した
+# Multilayer.pmのlimitと学習率をバランス取って、増減させながら、収束できた。
+#
 use strict;
 use warnings;
 use utf8;
@@ -47,30 +56,33 @@ sub Logging {
 		    #
      my $multi_learndata_XORgate = [
 	              { 
-		        class => [ 1 ],
+		        class => [ 1 , 0 ],
 		        input => [ 100 , 100 ]
 		      },	
 		      {
-		        class => [ 0 ],
+		        class => [ 0 , 1 ],
 			input => [ 0 , 100 ]
 		      },
 		      {
-		        class => [ 0 ],
+		        class => [ 0 , 1 ],
 			input => [ 100 , 0 ]
 		      },
 		      {
-			class => [ 1 ],
+			class => [ 1 , 0 ],
 			input => [ 0 , 0 ]
 		      },
 	              ];
+
+=pod
+=cut
 
     # ２層パーセプトロンを構成して、XOR回路を学習させる
     # 何回か動かすと何故か失敗することがある。。。？
 
     my $structure = { 
-	              layer_member  => [ 1 , 0 ],
+	              layer_member  => [ 3 , 1 ],
 		      input_count => 1 ,
-		      learn_rate => 0.05
+		      learn_rate => 0.00041
 	            };
 
 
@@ -93,7 +105,7 @@ sub Logging {
            say "out: @{$ret->[-1]}  class: @{$sample->{class}} ";
        }	       
 
-
+       $multilayer->dump_structure();
 
 =pod
        # 大きな数値を入れるとXORの動作をしている
