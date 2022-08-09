@@ -21,7 +21,8 @@ subtest 'layer_init method check' => sub {
     my $structure = {
                       layer_member  => [ 1 , 1 ],
                       input_count => 3 ,
-                      learn_rate => 0.34
+                      learn_rate => 0.34,
+		      layer_act_func => [ 'ReLU' , 'Step' ],
                     };
 
     dies_ok( sub { $obj->layer_init() } , 'no param die' );
@@ -49,7 +50,8 @@ subtest 'disp_waits  method input check' => sub {
     my $structure = {
                       layer_member  => [ 1 , 1 ],
                       input_count => 3 ,
-                      learn_rate => 0.34
+                      learn_rate => 0.34,
+		      layer_act_func => [ 'ReLU' , 'Step' ],
                     };
     $obj->layer_init($structure);
 
@@ -105,7 +107,8 @@ subtest 'dump_structure methos check' => sub {
     my $structure = {
                       layer_member  => [ 1 , 1 ],
                       input_count => 3 ,
-                      learn_rate => 0.34
+                      learn_rate => 0.34,
+		      layer_act_func => [ 'ReLU' , 'Step' ],
                     };
 
     $obj->layer_init($structure);
@@ -156,7 +159,8 @@ subtest 'calc_multi method check ' => sub {
     my $structure = {
                       layer_member  => [ 1 , 1 ],
                       input_count => 3 ,
-                      learn_rate => 0.34
+                      learn_rate => 0.34,
+		      layer_act_func => [ 'ReLU' , 'Step' ],
                     };
 
     $obj->layer_init($structure);
@@ -174,7 +178,8 @@ subtest 'learn method ' => sub {
     my $structure = {
                       layer_member  => [ 1 , 1 ],
                       input_count => 3 ,
-                      learn_rate => 0.34
+                      learn_rate => 0.34,
+		      layer_act_func => [ 'ReLU' , 'Step' ],
                     };
 
     dies_ok( sub { $obj->learn() } , 'stat is not layerinited' );

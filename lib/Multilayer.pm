@@ -5,6 +5,7 @@ package Multilayer;
 # 学習には全体を見渡さないと出来ないので。。。
 # 最終的にはネットワーク経由でノードを分散させることも考える
 # ノード側PerceptronモジュールのcalcReLU,calcStepメソッドを呼び出して、計算し、
+# 活性化関数を分離した書き方に変更したので、->calcSum->ReLU()となる
 # 重み付けは計算して、waitsメソッドでノードに登録していく
 #
 # Perceptronの収束確率が低いので、どこまでうまく動作するのか不明
@@ -40,7 +41,8 @@ sub new {
        $self->{layer_member} = undef; # 層内のノード数
        $self->{input_count} = undef; # ノードへの入力数
        $self->{learn_rate} = undef; # 学習率を全体反映させる
-       $self->{initdata} = undef;
+       $self->{initdata} = undef; # layer_init時に指定された引数
+       $self->{error_count} = {}; # 教育データのクラス毎にエラー回数
 
        $self->{stat} = ""; # モジュールのステータス
                            # layer_inited : 初期化済  ->learn()　が動作する
@@ -74,6 +76,7 @@ sub layer_init {
         layer_member => [ 'ノード数 -1', ・・・ ],   階層毎のノード数 
         input_count => '入力数',  最初に入力するデータ量
         learn_rate => 0.34
+        layer_act_func => [ 'ReLU' , 'ReLU' .... , 'Step' ],  # layer_memberと同じ項目数 layer毎の活性化関数を指定
      }
 =cut
     if (!@_) {
@@ -88,6 +91,8 @@ sub layer_init {
 	$self->{layer_count} = $#tmp;
 	$self->{input_count} = $self->{initdata}->{input_count};
 	undef @tmp;
+	$self->{layer_act_func} = $self->{initdata}->{layer_act_func};
+	weaken($self->{layer_act_func});
 	if ( exists $self->{initdata}->{learn_rate} ) {
             $self->{learn_rate} = $self->{initdata}->{learn_rate};
 	}
@@ -96,30 +101,55 @@ sub layer_init {
         croak "initdata error!";
     }
 
-    $self->{layer} = []; # 初期化　ループに対応
+    $self->{layer} = []; # 初期化　
 
     for (my $l=0;$l<=$self->{layer_count};$l++) {
-        my $nodes = [];
+        $self->{tmp}->{nodes} = [];
         for (my $n=0; $n<=$self->{layer_member}->[$l]; $n++) {
-            push( @{$nodes} , Perceptron->new );
+            push( @{$self->{tmp}->{nodes}} , Perceptron->new );
 	    # waitsの初期化
-	    if ( $l == 0 ) {
-		# He初期化のためレイヤーのノード数を送る
-		my $node_count = $self->{layer_member}->[$l] + 1;
-		$nodes->[$n]->waitsinit($self->{input_count} , $node_count);
-		#$nodes->[$n]->waitsinit($self->{input_count});  # 乱数初期化
-	    } else {
-		my $node_count = $self->{layer_member}->[$l] + 1;
-		$nodes->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count);  # 一つ前の階層のノード数
-		#$nodes->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
-	    }
-	    if ( defined $self->{learn_rate} ) {
-		# 学習率が指定されていれば変更する
-                $nodes->[$n]->learn_rate($self->{learn_rate});
-	    }
+
+	    my $subs->{ReLU} =  sub {  
+		    my ($self , $l , $n ) = @_;
+
+		    if ( $l == 0 ) {
+			# He初期化のためレイヤーのノード数を送る
+			my $node_count = $self->{layer_member}->[$l] + 1;
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count);
+			#$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
+		    } else {
+			my $node_count = $self->{layer_member}->[$l] + 1;
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count);  # 一つ前の階層のノード数
+			#$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
+		    }
+		    if ( defined $self->{learn_rate} ) {
+			# 学習率が指定されていれば変更する
+			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
+			$self->{learn_limit} = 1 / $self->{learn_rate}; # limitは学習率の逆数
+		    }
+	    }; # sub ReLU
+
+	    $subs->{Step} = sub {
+		    my ($self , $l , $n ) = @_;
+
+		    if ( $l == 0 ) {
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
+		    } else {
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
+		    }
+		    if ( defined $self->{learn_rate} ) {
+			# 学習率が指定されていれば変更する
+			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
+			$self->{learn_limit} = 1 / $self->{learn_rate}; # limitは学習率の逆数
+		    }
+	    }; # sub Step
+
+
+	    $subs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n ); 
+
         }
-    push (@{$self->{layer}} , $nodes);
-    undef $nodes;
+    push (@{$self->{layer}} , $self->{tmp}->{nodes});
+    undef $self->{tmp};
     }
 
     $self->{stat} = "layer_inited";
@@ -349,10 +379,11 @@ sub learn {
         while ( $sample_flg ) {  
 
             if ($sample_count >= $self->{learn_limit} ) {
-                &::Logging("learn limit over!");
+                &::Logging("learn limit over!  $sample_count");
 		my $dump_strings = Dumper $sample;
 		&::Logging("dump : $dump_strings ");
 		undef $dump_strings;
+		$self->{error_count}->{$sample->{class}}++; # クラス毎にエラーをカウント
 		$sample_flg = 0;
 		# exit;
 	    }
@@ -371,6 +402,7 @@ sub learn {
 	    undef $self->{tmp};
 
             # calc_sumを集計しておく ノード毎の活性化関数前の値
+	    # calc_sumはアクセサー
 	    my $calc_sum = [];
             for my $l ( 0 .. $self->{layer_count} ) {
                 for my $n ( 0 .. $self->{layer_member}->[$l] ) {
@@ -431,6 +463,25 @@ sub learn {
 
 		&::Logging("DEBUG: old_layerwaits") if $debug == 1;
 		print Dumper $old_layerwaits if $debug == 1;
+		
+		my $act_funcs->{ReLU} = sub {
+		    my ($self , $l , $n ) = @_;
+		    my $second = undef;
+			# 活性化関数がReLUのケース
+			my $bias = $self->{layer}->[$l]->[$n]->bias(); 
+			if ( $out->[$l]->[$n] >= $bias ) {
+			    $second = 1; # 活性化関数 の微分 ReLU関数
+			} else {
+			    $second = 0;
+			}
+			return $second;
+		}; # sub
+
+		$act_funcs->{Step} = sub {
+		    my ($self , $l , $n ) = @_;
+		    my $second = $out->[$l]->[$n];  # Step関数の微分
+		    return $second;
+		}; # sub
 
 		my $new_layerwaits = [];
 		my $new_layerbias = [];  # logの為だけに取得 計算上は不要
@@ -449,13 +500,9 @@ sub learn {
 			        for my $nsum ( 0 .. $self->{layer_member}->[$l+1] ) {
                                     $first += $backprobacation->[$l+1]->[$nsum]->[$n]->{first} * $backprobacation->[$l+1]->[$nsum]->[$n]->{second} * $new_layerwaits->[$l+1]->[$nsum]->[$n]; 
 				}
-				# 活性化関数がReLUのケース
-				my $bias = $self->{layer}->[$l]->[$n]->bias(); 
-				if ( $out->[$l]->[$n] >= $bias ) {
-		                    $second = 1; # 活性化関数 の微分 ReLU関数
-			        } else {
-                                    $second = 0;
-				}
+
+			        $second = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+
 				$third = $sample->{input}->[$w]; # 入力値 ########
 				$backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 使わないけれどチェックしているので残している
                                 my $tmp = $old_layerwaits->[$l]->[$n]->[$w] - ( $learn_rate * $backprobacation->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{first} * $backprobacation->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{second} * $third );
@@ -473,8 +520,12 @@ sub learn {
                                 if ($l == $self->{layer_count}) {
 		                # 出力層の重み付け調整  ステップ関数なので、ここで＋ーの方向が決まる
 			            $first = $out->[$l]->[$n] - $sample->{class}->[$n];  # 誤差関数の偏微分->今回の出力からクラスラベル差
-				    # Step関数のケース
-                                    $second = $out->[$l]->[$n];   # 活性化関数の偏微分 ->出力値そのまま
+
+
+				    #  活性化関数に寄って変更される
+				    #  $second = $out->[$l]->[$n];   # 活性化関数の偏微分 ->出力値そのまま
+			            $second = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+
                                     $third = $out->[$l-1]->[$w];   #入力から得られた結果の偏微分 -> 前の層からの入力
 				    $backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 次の層の計算で利用される
 
@@ -489,6 +540,7 @@ sub learn {
 			            for my $nsum ( 0 .. $self->{layer_member}->[$l+1] ) {
                                         $first += $backprobacation->[$l+1]->[$nsum]->[$n]->{first} * $backprobacation->[$l+1]->[$nsum]->[$n]->{second} * $new_layerwaits->[$l+1]->[$nsum]->[$n]; 
 				    }
+=pod
 				    # ReLU関数の微分
 				    my $bias = $self->{layer}->[$l]->[$n]->bias(); 
 				    if ( $out->[$l]->[$n] >= $bias ) {
@@ -496,6 +548,10 @@ sub learn {
 			            } else {
                                         $second = 0;
 				    }
+=cut
+				    # $act_funcsに置き換わり 指定された活性化関数による
+			            $second = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+
                                     $third = $out->[$l-1]->[$w];  # 前の層からの入力  ノードの番号はwaitsの添字
 				    $backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 次の回の計算で利用される
 
@@ -653,6 +709,9 @@ sub learn {
     # class毎の学習が完了したか目視用のDump
     &::Logging("class learn check dump self->{learn_finish}") if $hand == 1;
     print Dumper $self->{learn_finish} if $hand == 1;
+    # エラー率
+    &::Logging("error_count  self->{error_count}") if $hand == 1;
+    print Dumper $self->{error_count} if $hand == 1;
 
     # class毎に成功しているかチェックする
     my $finish_cnt = 0;
@@ -733,29 +792,41 @@ sub calc_multi {
 	        if ( $l == 0){
 	        # 入力レイアー
                     $layer[$l]->[$n]->input($self->{input});
-		    my $res = $layer[$l]->[$n]->calcReLU();
+		    #my $res = $layer[$l]->[$n]->calcReLU();
+		    my $method = $self->{layer_act_func}->[$l]; # layer_initの式から、scalarに展開して
+		    my $res = $layer[$l]->[$n]->calcSum->${\$method};   # リファレンスを経由するとメソッドを変数で指定出来る
+		    #my $res = $layer[$l]->[$n]->calcSum->ReLU();  
 		    push(@{$out->[$l]} , $res);
 		    undef $res;
-                } elsif ( $l < $self->{layer_count}) {
-                #　中間レイアー
+                } elsif ( $l <= $self->{layer_count}) {
+                #　中間レイアー & 出力レイヤー
                     # 前段の出力を集計 
                     for my $node ( 0 .. $self->{layer_member}->[$l-1]) {   # $nだとややこしいのであえて書き方を変える
                         push(@{$l_input} , $out->[$l-1]->[$node]);
 		    }
 		    $layer[$l]->[$n]->input($l_input);
-		    my $res = $layer[$l]->[$n]->calcReLU();
+		    #my $res = $layer[$l]->[$n]->calcReLU();
+		    my $method = $self->{layer_act_func}->[$l];
+		    my $res = $layer[$l]->[$n]->calcSum->${\$method};
+		    #my $res = $layer[$l]->[$n]->calcSum->ReLU();
                     push(@{$out->[$l]} , $res);
 		    undef $res;
+	        }
+
+=pod
+		# メソッドを変数展開出来たので、場合分けが不要になった
 	        } elsif ( $l == $self->{layer_count}) {
 	        # 出力レイアー
                     for my $node ( 0 .. $self->{layer_member}->[$l-1]) {
                         push(@{$l_input} , $out->[$l-1]->[$node]);
 		    }
                     $layer[$l]->[$n]->input($l_input);
-                    my $res = $layer[$l]->[$n]->calcStep();
+		    #my $res = $layer[$l]->[$n]->calcStep();
+                    my $res = $layer[$l]->[$n]->calcSum->Step();
                     push(@{$out->[$l]} , $res);
 		    undef $res;
 	        }
+=cut
 		undef $l_input;
 	  } # for $n
 	  undef @nodes;

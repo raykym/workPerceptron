@@ -123,6 +123,50 @@ sub calc {
     }
 }
 
+# 活性化関数を分離した書き方
+sub calcSum {
+    my $self = shift;
+ 
+    my @waits = @{$self->{waits}};
+    my @input = @{$self->{input}};
+
+    if ($#waits != $#input ) {
+        croak "wait input miss match!  $#waits | $#input ";
+	exit;
+    }
+
+    my $sum = 0;
+
+    $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+
+    undef @waits;
+    undef @input;
+
+    $self->{calc_sum} = $sum; 
+
+    return $self; # ->calcsum->ReLU() の為
+}
+
+sub ReLU {
+    my $self = shift;
+
+    if ( $self->{calc_sum} >= $self->{bias} ){
+        return $self->{calc_sum};
+    } elsif ( $self->{calc_sum} < $self->{bias} ) {
+        return 0;
+    }
+}
+
+sub Step {
+    my $self = shift;
+
+    if ( $self->{calc_sum} >= $self->{bias} ){
+        return 1;
+    } elsif ( $self->{calc_sum} < $self->{bias} ) {
+        return 0;
+    }
+}
+
 sub calcReLU {
     my $self = shift;
  
@@ -181,6 +225,7 @@ sub calcStep {
 
 sub calcSigmoid {
     my $self = shift;
+    # 未使用
 
     my @waits = @{$self->{waits}};
     my @input = @{$self->{input}};
@@ -226,7 +271,7 @@ sub waitsinit {
 	}
 
         if ($_[0] =~ /\d?/) {
-            my $cnt = $_[0];
+            my $cnt = $_[0]; # waitの数
 	    my $node_count = $_[1];  # He初期化用
 
 	    for (my $i=0; $i<=$cnt; $i++) {
@@ -433,7 +478,7 @@ sub learn_simple {
 
 sub calc_sum {
     my $self = shift;
-    # calc_step, calc_ReLUの場合、sumの値を記録しておく
+    # calcStep, calcReLUの場合、sumの値を記録しておく
 
     return $self->{calc_sum};
 }

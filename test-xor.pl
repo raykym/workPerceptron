@@ -82,7 +82,8 @@ sub Logging {
     my $structure = { 
 	              layer_member  => [ 3 , 1 ],
 		      input_count => 1 ,
-		      learn_rate => 0.00041
+		      learn_rate => 0.00041,
+		      layer_act_func => [ 'ReLU' , 'Step' ],
 	            };
 
 

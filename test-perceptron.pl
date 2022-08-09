@@ -193,11 +193,11 @@ my $learndata_XORgate = [ {
        exit;
        ####################################
 
-		    # multilayer用 clasはs0,1 に変更される。
-		    # あえて大きな数値を入れて大体の感じでXORを表現する
-		    # 2層構造のXORは最低100を入力しないと学習出来ない
-		    #
-     my $multi_learndata_XORgate = [ { 
+    # multilayer用 clasはs0,1 に変更される。
+    # あえて大きな数値を入れて大体の感じでXORを表現する
+    # 2層構造のXORは最低100を入力しないと学習出来ない
+    #
+my $multi_learndata_XORgate = [ { 
 		        class => [ 1 ],
 		        input => [ 1000 , 1000 ]
 		      },	

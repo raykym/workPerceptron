@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
-# simple perceptronの学習ななど、自作実装で動作を確認する。
-# AND OR NAND NORについて動作することを確認
+# Onelayerモジュールを作成して、増幅層を用意して動作させることを考えていたが、
+# 途中で放棄した状態
 #
 use strict;
 use warnings;
