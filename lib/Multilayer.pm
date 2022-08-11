@@ -144,6 +144,20 @@ sub layer_init {
 		    }
 	    }; # sub Step
 
+	    $subs->{Sigmoid} = sub {
+		    my ($self , $l , $n ) = @_;
+
+		    if ( $l == 0 ) {
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
+		    } else {
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
+		    }
+		    if ( defined $self->{learn_rate} ) {
+			# 学習率が指定されていれば変更する
+			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
+			$self->{learn_limit} = 10000;
+		    }
+	    }; # sub Sigmoid
 
 	    $subs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n ); 
 
@@ -383,7 +397,7 @@ sub learn {
 		my $dump_strings = Dumper $sample;
 		&::Logging("dump : $dump_strings ");
 		undef $dump_strings;
-		$self->{error_count}->{$sample->{class}}++; # クラス毎にエラーをカウント
+		$self->{error_count}->{@{$sample->{class}}}++; # クラス毎にエラーをカウント
 		$sample_flg = 0;
 		# exit;
 	    }
@@ -480,6 +494,15 @@ sub learn {
 		$act_funcs->{Step} = sub {
 		    my ($self , $l , $n ) = @_;
 		    my $second = $out->[$l]->[$n];  # Step関数の微分
+		    return $second;
+		}; # sub
+
+		$act_funcs->{Sigmoid} = sub {
+		    my ($self , $l , $n ) = @_;
+                    my $bias = $self->{layer}->[$l]->[$n]->bias();
+                    my $calc_sum = $self->{layer}->[$l]->[$n]->calc_sum();
+                       $calc_sum += $bias;
+		    my $second = ( 1 - ( 1 / (1 + exp( -$calc_sum)))) * ( 1 / (1 + exp( -$calc_sum)));  # sigmoid関数の微分
 		    return $second;
 		}; # sub
 

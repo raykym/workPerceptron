@@ -167,6 +167,17 @@ sub Step {
     }
 }
 
+sub Sigmoid {
+    my $self = shift;
+
+    my $tmp = $self->{calc_sum}; 
+       $tmp += $self->{bias};
+
+    my $sig = 1 / ( 1 + exp(-$tmp) );
+    undef $tmp;
+    return $sig;
+}
+
 sub calcReLU {
     my $self = shift;
  
