@@ -10,7 +10,7 @@ use feature ':5.13';
 binmode 'STDOUT' , ':utf8';
 
 use Time::HiRes qw/ time /;
-#use Data::Dumper;
+use Data::Dumper;
 #use Devel::Size;
 #use Devel::Cycle;
 
@@ -38,34 +38,13 @@ sub Logging {
 
 
 
-     my $multi_learndata_test = [
-	              { 
-		        class => [ 0 , 0 , 1 ],
-		        input => [ 10 , 10 , 10 ]
-		      },	
-		      {
-		        class => [ 0 , 1 , 0 ],
-			input => [ 0 , 10 , 10 ]
-		      },
-		      {
-		        class => [ 0 , 1 , 0 ],
-			input => [ 10 , 10 , 0 ]
-		      },
-		      {
-			class => [ 1 , 0 , 0 ],
-			input => [ 10 , 0 , 0 ]
-		      },
-	              ];
-
-=pod
-=cut
 
 
     my $structure = { 
-	              layer_member  => [ 2 , 2 , 2 ],
-		      input_count => 2 ,
+	              layer_member  => [  0 , 0 ],
+		      input_count => 1 ,
 		      learn_rate => 0.00041,
-		      layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' ],
+		      layer_act_func => [ 'ReLU' , 'ReLU' ],
 	            };
 
 
@@ -87,6 +66,16 @@ sub Logging {
            my $ret = $multilayer->calc_multi();
            say "out: @{$ret->[-1]}  class: @{$sample->{class}} ";
        }	       
+
+       # 同時作成したデータで予測を実施
+       for my $sample ( @{$multi_checkdata_test}) {
+           $multilayer->stat('learned'); # statを強制変更	       
+	   $multilayer->input($sample->{input});    
+           my $ret = $multilayer->calc_multi();
+           say "out: @{$ret->[-1]}  class: @{$sample->{class}} ";
+       }	       
+
+
 
        $multilayer->dump_structure();
 

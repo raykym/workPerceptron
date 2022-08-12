@@ -70,7 +70,7 @@ sub Logging {
     # 何回か動かすと何故か失敗することがある。。。？
 
     my $structure = { 
-	              layer_member  => [ 2 , 0 ],
+	              layer_member  => [ 1 , 0 ],
 		      input_count => 1 ,
 		      learn_rate => 0.0009,
 		      layer_act_func => [ 'Sigmoid' , 'Sigmoid' ],

@@ -596,13 +596,15 @@ sub learn {
 			# biasの更新 (ここはノード単位で1回)
 			if ($l == $self->{layer_count} ) {
 			    #　出力層
+			    my $iota = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 			    my $bias = $self->{layer}->[$l]->[$n]->bias();
-			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $out->[$l]->[$n] * $out->[$l-1]->[$n]); 
+			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * $out->[$l-1]->[$n]); 
 			    $self->{layer}->[$l]->[$n]->bias($tmp);
 			    $new_layerbias->[$l]->[$n] = $tmp;
                             
                             undef $tmp;
 			    undef $bias;
+			    undef $iota;
 		        } elsif ( $l <= $self->{layer_count} ) {
 			    # 中間層
 			    my $bias = $self->{layer}->[$l]->[$n]->bias();
