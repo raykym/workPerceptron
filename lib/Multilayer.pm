@@ -155,7 +155,7 @@ sub layer_init {
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
-			$self->{learn_limit} = 10000;
+			$self->{learn_limit} = 100;
 		    }
 	    }; # sub Sigmoid
 
@@ -541,9 +541,8 @@ sub learn {
 				my ( $first , $second , $third ) = ( undef , undef , undef );
 
                                 if ($l == $self->{layer_count}) {
-		                # 出力層の重み付け調整  ステップ関数なので、ここで＋ーの方向が決まる
+		                # 出力層の重み付け調整 
 			            $first = $out->[$l]->[$n] - $sample->{class}->[$n];  # 誤差関数の偏微分->今回の出力からクラスラベル差
-
 
 				    #  活性化関数に寄って変更される
 				    #  $second = $out->[$l]->[$n];   # 活性化関数の偏微分 ->出力値そのまま
@@ -563,15 +562,7 @@ sub learn {
 			            for my $nsum ( 0 .. $self->{layer_member}->[$l+1] ) {
                                         $first += $backprobacation->[$l+1]->[$nsum]->[$n]->{first} * $backprobacation->[$l+1]->[$nsum]->[$n]->{second} * $new_layerwaits->[$l+1]->[$nsum]->[$n]; 
 				    }
-=pod
-				    # ReLU関数の微分
-				    my $bias = $self->{layer}->[$l]->[$n]->bias(); 
-				    if ( $out->[$l]->[$n] >= $bias ) {
-		                        $second = 1; # 活性化関数 
-			            } else {
-                                        $second = 0;
-				    }
-=cut
+				    
 				    # $act_funcsに置き換わり 指定された活性化関数による
 			            $second = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 

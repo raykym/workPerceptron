@@ -177,8 +177,8 @@ sub plotdata {
     my @pfunc;
     for my $l ( 0 .. $layer_count ) {
         for my $n ( 0 .. $pice_data->{layer_init}->{layer_member}->[$l] ) {
-            # 通常はARRAYデータ
             if ( $pice_data->{waits} =~ /ARRAY/ ) {
+                # 通常はARRAYデータ
                 my $wait_sum = List::Util::sum @{$pice_data->{waits}->[$l]->[$n]};
                 my $bias = $pice_data->{bias}->[$l]->[$n];
            #    print "l: $l n: $n waits_sum: $wait_sum \n";
@@ -194,7 +194,12 @@ sub plotdata {
 
     my $func_strings = join ("," , @pfunc ); # カンマ区切りで式を記述する
     
-    say $gp "plot $func_strings";
+
+    if ( -f './learndata_plot.txt' ) {
+        say $gp "plot './learndata_plot.txt' , $func_strings";
+    } else {
+        say $gp "plot $func_strings";
+    }
 
     close $gp;
 

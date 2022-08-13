@@ -15,7 +15,7 @@ use Devel::Size;
 use Devel::Cycle;
 
 use lib './lib';
-use Perceptron;
+#use Perceptron;
 use Multilayer;
 
 

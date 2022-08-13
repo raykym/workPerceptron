@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 #
 # ReLU関数の多層パーセプトロンで表現力というものを確認する
+# 分類のテスト
 #
 use strict;
 use warnings;
@@ -36,15 +37,63 @@ sub Logging {
         return;
 }
 
+# ２群のデータを入れて、分類を試す
 
+    my $point1 = [ 0 , 10 ];
+    my $point2 = [ 20 , 0 ];
+    my $group1 = [];  # class [ 1 , 0 ]
+    my $group2 = [];  # class [ 0 , 1 ]
 
+    srand();
 
+    for my $cnt ( 1 .. 100 ) {
+        my $sample->{class} = [ 1 , 0 ];
+           $sample->{input} = [ $point1->[0] + rand(10) , $point1->[1] + rand(10) ] ;
+        push (@{$group1} , $sample);
+    }
+    for my $cnt ( 1 .. 100 ) {
+         my $sample->{class} = [ 0 , 1 ];
+            $sample->{input} = [ $point2->[0] + rand(10) , $point2->[1] + rand(10) ] ;
+        push (@{$group2} , $sample );
+    }
+
+    # 教育用抽出
+    my $learndata = [];
+    while ( 1 ) {
+
+        my @tmp1 = @{$group1};
+	my @tmp2 = @{$group2};
+
+        my $index_count1 = $#tmp1;
+        my $index_count2 = $#tmp2;
+
+	if ($#tmp1 <= 49 ) {
+            last;
+	}
+
+	my $index1 = int(rand($index_count1));
+	my $index2 = int(rand($index_count2));
+
+        my @tmp = splice(@{$group1} , $index1 , 1 );
+	push (@{$learndata} , @tmp );
+
+         @tmp = splice(@{$group2} , $index2 , 1 );
+	push (@{$learndata} , @tmp );
+    }
+
+    # plot data output
+    open ( my $fh , '>' , 'learndata_plot.txt' );
+    say $fh "# plot learn data";
+    for my $sample ( @{$learndata} ) {
+        say $fh "$sample->{input}->[0] $sample->{input}->[1] "; 
+    }
+    close($fh);
 
     my $structure = { 
-	              layer_member  => [  0 , 0 ],
+	              layer_member  => [  1 , 1 ],
 		      input_count => 1 ,
 		      learn_rate => 0.00041,
-		      layer_act_func => [ 'ReLU' , 'ReLU' ],
+		      layer_act_func => [ 'ReLU' , 'Step' ],
 	            };
 
 
@@ -55,12 +104,12 @@ sub Logging {
 
        $multilayer->datalog_transaction('on'); #datalogをトランザクションモードで高速化する
 
-       $multilayer->learn($multi_learndata_test);
+       $multilayer->learn($learndata);
 
        $multilayer->disp_waits();
 
        # 学習結果を確認する
-       for my $sample ( @{$multi_learndata_test}) {
+       for my $sample ( @{$learndata}) {
            $multilayer->stat('learned'); # statを強制変更	       
 	   $multilayer->input($sample->{input});    
            my $ret = $multilayer->calc_multi();
@@ -68,13 +117,23 @@ sub Logging {
        }	       
 
        # 同時作成したデータで予測を実施
-       for my $sample ( @{$multi_checkdata_test}) {
+
+       my @checkdata = (@{$group1} , @{$group2} );
+
+       for my $sample (@checkdata) {
            $multilayer->stat('learned'); # statを強制変更	       
 	   $multilayer->input($sample->{input});    
            my $ret = $multilayer->calc_multi();
            say "out: @{$ret->[-1]}  class: @{$sample->{class}} ";
        }	       
 
+       # plot data output
+       open ( $fh , '>' , 'checkdata_plot.txt' );
+       say $fh "# plot check data";
+       for my $sample ( @{$learndata} ) {
+	   say $fh "$sample->{input}->[0] $sample->{input}->[1] "; 
+       }
+       close($fh);
 
 
        $multilayer->dump_structure();

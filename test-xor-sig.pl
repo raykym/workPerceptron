@@ -72,7 +72,7 @@ sub Logging {
     my $structure = { 
 	              layer_member  => [ 1 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.0009,
+		      learn_rate => 0.3,
 		      layer_act_func => [ 'Sigmoid' , 'Sigmoid' ],
 	            };
 
