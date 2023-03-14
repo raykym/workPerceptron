@@ -96,6 +96,7 @@ sub input {
 
 sub calc {
     my $self = shift;
+    # perceptron単体用
 
     my @waits = @{$self->{waits}};
     my @input = @{$self->{input}};
@@ -155,6 +156,20 @@ sub ReLU {
     } elsif ( $self->{calc_sum} < $self->{bias} ) {
         return 0;
     }
+
+}
+
+# ReLUのデバッグ用 -> 活性化関数無し
+sub None {
+    my $self = shift;
+    # biasの判定をスルー
+
+    my $tmp = $self->{calc_sum} + $self->{bias};
+    # 上の式の記号を＋にするとwaitsの計算と同じなのだけど、学習率を何に設定しても終わらなくなる
+    # しきい値としてbiasをにんしきしている場合はマイナスだが、入力に比例するように見える
+    # 活性化関数を加味しないとすると、、、、
+
+    return $tmp;
 }
 
 sub Step {

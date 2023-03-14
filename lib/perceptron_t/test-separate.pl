@@ -17,9 +17,9 @@ use Perceptron;
 
 my $perceptron = Perceptron->new;
 
-$perceptron->waitsinit(1);
+$perceptron->waitsinit( 1 , 9 );
 
-$perceptron->input([ 100 , 100 ]);
+$perceptron->input([ 10 , 10 ]);
 
 #my $res = $perceptron->calcReLU();
 
@@ -27,5 +27,7 @@ $perceptron->input([ 100 , 100 ]);
 
 #my $res = $perceptron->ReLU($perceptron->calcSum());
 my $res = $perceptron->calcSum->ReLU();
+say $res;
 
+$res = $perceptron->calcSum->None();
 say $res;

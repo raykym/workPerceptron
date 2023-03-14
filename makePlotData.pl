@@ -195,6 +195,7 @@ sub plotdata {
     my $func_strings = join ("," , @pfunc ); # カンマ区切りで式を記述する
     
 
+    # learndata_plot.txtが存在すれば、一緒に表示する
     if ( -f './learndata_plot.txt' ) {
         say $gp "plot './learndata_plot.txt' , $func_strings";
     } else {

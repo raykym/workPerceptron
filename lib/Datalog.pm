@@ -7,10 +7,11 @@ use Data::Dumper;
 use Time::HiRes qw/ time /;
 
 # epocタイムでテーブルを作成して、waitsデータを記録していく
-# スクリプト1回でテーブル1つの想定
+# 学習スクリプト1回でテーブル1つの想定 waitsの遷移をレコードで追える  ->makePlotData.pl
 # sqlite3なのでファイルを削除して、新規にログを取るケースも在ると
 
 sub new {
+    # 引数に文字列を指定してファイル名をデフォルト以外に変更可能
     my $proto = shift;
     my $class = ref $proto || $proto;
 
