@@ -125,7 +125,7 @@ sub layer_init {
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
-			$self->{learn_limit} = 1 / $self->{learn_rate}; # limitは学習率の逆数
+			$self->{learn_limit} = (1 / $self->{learn_rate}) * 1000; # limitは学習率の逆数
 		    }
 	    }; # sub ReLU
 
@@ -161,7 +161,7 @@ sub layer_init {
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
-			$self->{learn_limit} = 1 / $self->{learn_rate}; # limitは学習率の逆数
+			$self->{learn_limit} = (1 / $self->{learn_rate}) * 1000; # limitは学習率の逆数
 		    }
 	    }; # sub Step
 
@@ -444,8 +444,9 @@ sub learn {
 	    my $calc_sum = [];
             for my $l ( 0 .. $self->{layer_count} ) {
                 for my $n ( 0 .. $self->{layer_member}->[$l] ) {
-		    my $tmp = $self->{layer}->[$l]->[$n]->calc_sum(); 
-		    $calc_sum->[$l]->[$n] =  $tmp ; #scar経由なら値はコピーされる、リファレンスされない
+		    #my $tmp = $self->{layer}->[$l]->[$n]->calc_sum(); 
+		    #$calc_sum->[$l]->[$n] =  $tmp ; #scar経由なら値はコピーされる、リファレンスされない
+		    $calc_sum->[$l]->[$n] = $self->{layer}->[$l]->[$n]->calc_sum(); 
                 }
             }
 
@@ -730,7 +731,7 @@ sub learn {
 		if ($self->{datalog_transaction} eq 'on' ) {
 
 	# データ量が大きくなるのでコメントアウト中
-=pod
+#=pod
 		    # トランザクションモード
                     $self->{datalog_count}++;
 		    $self->{datalog}->addlog($new_structure_strings);
@@ -739,7 +740,7 @@ sub learn {
 			$self->{datalog}->begin_work(); # commitするとautoComitに戻るので、もう一回
                         $self->{datalog_count} = 0;
 		    }
-=cut
+#=cut
 	        } elsif ($self->{datalog_transaction} eq 'off' ) {
 		    # autoCommit
 		    $self->{datalog}->addlog($new_structure_strings);

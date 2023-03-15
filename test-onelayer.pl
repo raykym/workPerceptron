@@ -52,7 +52,8 @@ sub Logging {
 
     for ( my $x = 1 ; $x <= 10 ; $x++  ) {
         for ( my $y = 1 ; $y <= 10 ; $y++  ) {
-	    my $z = (sin ( sqrt( $x**2 + $y**2 ) ) /  sqrt( $x**2 + $y**2 )) ;
+           my $z = (sin ( sqrt( $x**2 + $y**2 ) ) /  sqrt( $x**2 + $y**2 )) * 10 ;
+	   # my $z = (sin ( $x + $y ) ) * 10 ;
             push(@{$z_array} , $z);
 	    say $fhl "$x $y $z";
         } # for y
@@ -76,10 +77,10 @@ sub Logging {
 
 
     my $structure = { 
-	              layer_member  => [ 9999 , 99 ],
+	              layer_member  => [ 999 , 99 ],
 		      input_count => 1 ,
 		      learn_rate => 0.0042,
-		      layer_act_func => [ 'Sigmoid' , 'None' , 'None' , 'Sigmoid' , 'None' ],
+		      layer_act_func => [ 'ReLU' , 'None' ],
 	            };
 
 

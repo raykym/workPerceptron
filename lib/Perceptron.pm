@@ -151,9 +151,12 @@ sub calcSum {
 sub ReLU {
     my $self = shift;
 
-    if ( $self->{calc_sum} >= $self->{bias} ){
-        return $self->{calc_sum};
-    } elsif ( $self->{calc_sum} < $self->{bias} ) {
+    my $tmp = $self->{calc_sum}; 
+       $tmp += $self->{bias};
+
+    if ( $tmp > 0 ){
+        return $tmp;
+    } elsif ( $tmp <= 0 ) {
         return 0;
     }
 
