@@ -52,6 +52,8 @@ sub new {
        $self->{learn_limit} = 2000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
 
+       $self->{calc_multi_out} = undef; # clac_multiの結果を保持する　->lossで利用する
+
        $self->{datalog_name} = undef; # Datalog db file name
        $self->{datalog} = undef;
        $self->{datalog_transaction} = 'off'; # トランザクションモード  off: autocommit on:transaction
@@ -77,6 +79,7 @@ sub layer_init {
         input_count => '入力数',  最初に入力するデータ量
         learn_rate => 0.34
         layer_act_func => [ 'ReLU' , 'ReLU' .... , 'Step' ],  # layer_memberと同じ項目数 layer毎の活性化関数を指定
+        epoc => 100,    # エポック数  learn_limitよりも小さい数値を設定する
      }
 =cut
     if (!@_) {
@@ -109,6 +112,7 @@ sub layer_init {
             push( @{$self->{tmp}->{nodes}} , Perceptron->new );
 	    # waitsの初期化
 
+	    # ローカルサブルーチンの定義 活性化関数毎に初期化方法を設定
 	    my $subs->{ReLU} =  sub {  
 		    my ($self , $l , $n ) = @_;
 
@@ -125,7 +129,7 @@ sub layer_init {
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
-			$self->{learn_limit} = (1 / $self->{learn_rate}) * 1000; # limitは学習率の逆数
+			$self->{learn_limit} = (1 / $self->{learn_rate}); # limitは学習率の逆数 epocに相当
 		    }
 	    }; # sub ReLU
 
@@ -146,7 +150,7 @@ sub layer_init {
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
-			$self->{learn_limit} = (1 / $self->{learn_rate}) * 1000; # limitは学習率の逆数
+			$self->{learn_limit} = (1 / $self->{learn_rate}); # limitは学習率の逆数
 		    }
 	    }; # sub None
 
@@ -161,7 +165,7 @@ sub layer_init {
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
-			$self->{learn_limit} = (1 / $self->{learn_rate}) * 1000; # limitは学習率の逆数
+			$self->{learn_limit} = (1 / $self->{learn_rate}); # limitは学習率の逆数
 		    }
 	    }; # sub Step
 
@@ -177,7 +181,7 @@ sub layer_init {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
 			#	$self->{learn_limit} = 100;
-			$self->{learn_limit} = (1 / $self->{learn_rate}) * 1000 ; # limitは学習率の逆数
+			$self->{learn_limit} = (1 / $self->{learn_rate}) ; # limitは学習率の逆数
 		    }
 	    }; # sub Sigmoid
 
@@ -189,6 +193,7 @@ sub layer_init {
     }
 
     $self->{stat} = "layer_inited";
+    undef $subs;
 }
 
 sub takeover {
@@ -367,6 +372,9 @@ sub learn {
     # ただし、論理は0 or 1に変更される。
     # サンプルクラス毎に最低1回収束するところで学習済みとフラグを立てる。
     # 振り分けに失敗する場合は、外部からサンプルを替えて学習を続けることで収束も可能になる
+    #
+    # 手順は勾配降下法
+    #
 
     if (! $self->{stat} eq "layer_inited") {
         croak "Still init ...";
@@ -413,8 +421,10 @@ sub learn {
 
         my $sample_flg = 1;
 	my $sample_count = 0;
-        while ( $sample_flg ) {  
+#        while ( $sample_flg ) {  
 
+=pod
+	# whileをコメントしたのでここもコメントに
             if ($sample_count >= $self->{learn_limit} ) {
                 &::Logging("learn limit over!  $sample_count");
 		my $dump_strings = Dumper $sample;
@@ -423,9 +433,11 @@ sub learn {
 	       # $self->{error_count}->{@{$sample->{class}}}++; # クラス毎にエラーをカウント
 		$self->{error_count}->{"@{$sample->{class}}"}++; # クラス毎にエラーをカウント
 		$sample_flg = 0;
+	        
 		# exit;
 	    }
             $sample_count++;
+=cut
 
             &::Logging("Loop: $loop start ------------------") if $debug == 1;
 
@@ -439,8 +451,10 @@ sub learn {
 
 	    undef $self->{tmp};
 
+=pod
             # calc_sumを集計しておく ノード毎の活性化関数前の値
 	    # calc_sum()はアクセサー
+	    # 2乗誤差計算で使わなかった
 	    my $calc_sum = [];
             for my $l ( 0 .. $self->{layer_count} ) {
                 for my $n ( 0 .. $self->{layer_member}->[$l] ) {
@@ -449,7 +463,9 @@ sub learn {
 		    $calc_sum->[$l]->[$n] = $self->{layer}->[$l]->[$n]->calc_sum(); 
                 }
             }
+=cut
 
+=pod
 	    # 出力層の結果をsampleのclassラベルと比較する
 	    my $outstring = join ("" , @{$out->[$self->{layer_count}]});
 	    my $sampleclassstring = join ("" , @{$sample->{class}});
@@ -469,33 +485,22 @@ sub learn {
 
 	    } else {
                 # 結果が一致しなかったら
+    # 判定して修正する意味は無かったらしいのでlearn_limitをepocとして利用する
+=cut
                 #重み付けの更新 
 
+=pod
+		# ->lossに変更
 	        #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2 
 		my $esum = 0;
-		for my $node ( 0 .. $self->{layer_member}->[-1]) {
-                        # classラベルをbias値に置き換える
-                        my $switch_bias_value = undef;
-			my $bias = $self->{layer}->[$self->{layer_count}]->[$node]->bias();
-
-=pod
-			# おそらくReLU関数のつもりで場合分けを書いているがたぶん不要 下の1行で置き換え
-			if ( $sample->{class}->[$node] == 1 ) {
-                            $switch_bias_value = { $sample->{class}->[$node]  => $bias }; # hashで切り替え
-			} elsif ( $sample->{class}->[$node] == 0 ) {
-                            $switch_bias_value = { $sample->{class}->[$node] => 0 };            
-			}
-=cut
-                        $switch_bias_value = { $sample->{class}->[$node]  => $bias }; # hashで切り替え
-
-			#$esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ^ 2;  # 多分、活性化関数を含んで勘違いしていた式
-			##$esum += ($calc_sum->[$self->{layer_count}]->[$node] - $switch_bias_value->{$sample->{class}->[$node]} ) ^ 2;
-		    $esum += ($calc_sum->[$self->{layer_count}]->[$node] - $switch_bias_value->{$sample->{class}->[$node]} ) ** 2;
-
-		    &::Logging("DEBUG: calc_sum: $calc_sum->[$self->{layer_count}]->[$node] bias: $switch_bias_value->{$sample->{class}->[$node]} ") if $hand == 1;
+                for my $node ( 0 .. $self->{layer_member}->[-1]) {
+                    $esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
 		}
 		$esum = $esum / 2;
-		&::Logging("DEBUG: 誤差関数 $esum") if $hand == 1;
+=cut
+
+		#my $esum = $self->loss($out);
+		#&::Logging("DEBUG: 誤差関数 $esum") ; # if $hand == 1;
 
                 # 現在のwaitsを取得する biasを除く
 		my $old_layerwaits = [];  # 3次元配列
@@ -648,7 +653,8 @@ sub learn {
 			    #　出力層
 			    my $iota = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 			    my $bias = $self->{layer}->[$l]->[$n]->bias();
-			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * $out->[$l-1]->[$n]); 
+			    #my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * $out->[$l-1]->[$n]); # biasが前段の入力を得ているのがおかしいかもしれない
+			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * 1); 
 			    $self->{layer}->[$l]->[$n]->bias($tmp);
 			    $new_layerbias->[$l]->[$n] = $tmp;
 			    &::Logging("DEBUG: OUTLAYER learn_rate: $learn_rate bias: $bias iota: $iota new_bias: $tmp ") if $debug == 1;
@@ -718,6 +724,8 @@ sub learn {
                     }
 		}
 
+	# データ量が大きくなるのでコメントアウト中
+=pod
 		my $new_structure = { 
 			              layer_init => $self->{initdata},
 			              waits => $new_layerwaits,
@@ -730,8 +738,6 @@ sub learn {
 
 		if ($self->{datalog_transaction} eq 'on' ) {
 
-	# データ量が大きくなるのでコメントアウト中
-#=pod
 		    # トランザクションモード
                     $self->{datalog_count}++;
 		    $self->{datalog}->addlog($new_structure_strings);
@@ -740,13 +746,13 @@ sub learn {
 			$self->{datalog}->begin_work(); # commitするとautoComitに戻るので、もう一回
                         $self->{datalog_count} = 0;
 		    }
-#=cut
 	        } elsif ($self->{datalog_transaction} eq 'off' ) {
 		    # autoCommit
 		    $self->{datalog}->addlog($new_structure_strings);
 	        }
 
 		undef $new_structure;
+=cut
 
 		&::Logging("DEBUG: loop $loop Change waits value  ------------------------") if $hand == 1;
 		&::Logging("DEBUG: loop $loop Retry! $sample_count ------------------------") if $debug == 1;
@@ -773,7 +779,7 @@ sub learn {
 
                     if ($checkstring eq $fillstring) {
 			    # レイヤー毎にチェックする
-                        &::Logging("DEBUG: loop: $loop waits no change!!! layer $l sample_count: $sample_count") if $hand == 1;
+                        &::Logging("DEBUG: loop: $loop waits no change!!! layer $l sample_count: $sample_count") ; #if $hand == 1;
 			$sample_flg = 0;
 		    } 
                 }
@@ -810,13 +816,13 @@ sub learn {
 		undef $check;
 =cut
 
-            } # if sampleclassstring
+#            } # if sampleclassstring      # if文をコメントしたのでこれもコメントする
 
-	} # while 
+#       } # while  # whileをコメント
 
     } # for sample 
 
-    #  $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
+    $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 
     &::Logging("DEBUG: learn_finish data") if $debug == 1;
     # class毎の学習が完了したか目視用のDump
@@ -846,6 +852,28 @@ sub learn {
     undef $self->{learn_input};
 
     return $self->{stat};  # 完了ならlearndでなければlayer_initedが返る
+}
+
+sub loss {
+    my $self = shift;
+    # ->clac_multi()の結果を受け取って誤差関数の結果を返す
+
+        if (! defined $self->{calc_multi_out}) {
+            &::Logging("INFO: calc_multi_out undef...");
+	    return;
+	}
+
+        my $out = $self->{calc_multi_out};
+        #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2 
+        my $esum = 0;
+        for my $node ( 0 .. $self->{layer_member}->[-1]) {
+            $esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
+	}
+	$esum = $esum / 2;
+
+	undef $out;
+
+	return $esum;
 }
 
 sub stat {
@@ -945,6 +973,8 @@ sub calc_multi {
 	  undef @nodes;
     } # for $l
     undef @layer;
+
+    $self->{calc_multi_out} = $out;
 
     # ARRAY ref
     return $out;

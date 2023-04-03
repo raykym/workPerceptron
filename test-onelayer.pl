@@ -38,7 +38,9 @@ sub Logging {
 }
 
 # 学習データ
-    my $learndata = []; 
+    my $createdata = []; # 作成全データ
+    my $learndata = [];  # 10000個ピックアップ
+    my $interater = []; # ２次元配列  バッチ500毎に分割 500x20 (499x19)
 
     # データをきちんと作る必要がある。
     # x,yを入力してzが出力される関数」としてデータを用意する
@@ -46,41 +48,62 @@ sub Logging {
     # 結果的にx,yを与えるとｚが返ってくる構造になる
     # sinc(x)を3次元で表現するデータから、学習して、似たものを再現するところまでを試す
     #
-    open ( my $fhl , '>' , './onelayer_learndata.txt');
 
-    my $z_array = [];
-
-    for ( my $x = 1 ; $x <= 10 ; $x++  ) {
-        for ( my $y = 1 ; $y <= 10 ; $y++  ) {
-           my $z = (sin ( sqrt( $x**2 + $y**2 ) ) /  sqrt( $x**2 + $y**2 )) * 10 ;
-	   # my $z = (sin ( $x + $y ) ) * 10 ;
-            push(@{$z_array} , $z);
-	    say $fhl "$x $y $z";
-        } # for y
-    } # for x
-    close $fhl;
-
-    # 100個の出力層で個別にクラスを指定する　autoEncoderの状態
-    for ( my $x = 1 ; $x <= 10 ; $x++  ) {
-        for ( my $y = 1 ; $y <= 10 ; $y++  ) {
+    for ( my $x = -10 ; $x <= 10 ; $x+=0.1  ) {
+        for ( my $y = -10 ; $y <= 10 ; $y+=0.1  ) {
+	   my $z = undef;
+	   if ( $x == 0 && $y == 0 ) {
+               $z = 0;
+	   } else {
+               $z = (sin ( sqrt( $x**2 + $y**2 ) ) /  sqrt( $x**2 + $y**2 ));
+           }
             my $sample = {};
                $sample->{input} = [ $x , $y ];
-               $sample->{class} = $z_array; 
-	       push(@{$learndata} , $sample );
+               $sample->{class} = $z; 
+	       push(@{$createdata} , $sample );
         } # for y
     } # for x
 
-    undef $z_array;
+    # learndataの抽出
+    open ( my $fhl , '>' , './onelayer_learndata.txt');
+
+    my @tmp = @{$createdata};
+    my $data_cnt = $#tmp;
+    undef @tmp;
+
+    for my $cnt ( 1 .. 10000 ) {
+        my $choice = int(rand($data_cnt));
+	my $sample = $createdata->[$choice];
+        push(@{$learndata} , $sample);
+	 #say $fhl "$x $y $z";
+	say $fhl "$sample->{input}->[0] $sample->{input}->[1] $sample->{class}";
+    } #for cnt
+
+    close $fhl;
+
+    undef $createdata; # メモリ開放
+
+    #バッチ、イテレータに分割
+    for my $i ( 1 .. 20 ) {
+	my $tmp = [];
+        for my $j ( 1 .. 500 ) {
+	    push(@{$tmp} , shift(@{$learndata}));
+        }
+        push(@{$interater} , $tmp);
+	undef $tmp;
+    }
+
+    undef $learndata;
 
     #say "learndata";
     #print Dumper $learndata;
 
 
     my $structure = { 
-	              layer_member  => [ 999 , 99 ],
+	              layer_member  => [ 99 , 99 , 99 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.0042,
-		      layer_act_func => [ 'ReLU' , 'None' ],
+		      learn_rate => 0.001,
+		      layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
 	            };
 
 
@@ -92,9 +115,30 @@ sub Logging {
 
        #   $multilayer->disp_waits();
 
+=pod
+    # 学習前に入力して出力を確認する
+    open ( my $fh1 , '>' , './onelayer_nolearn.txt');
+    for ( my $x = -10 ; $x <= 10 ; $x++  ) {
+        for ( my $y = -10 ; $y <= 10 ; $y++  ) {
+               $multilayer->input( [ $x , $y ] );
+            my $out = $multilayer->calc_multi('learn');
+	    say $fh1 " $x $y $out->[-1]->[0] ";
+        }
+    }
+    close $fh1;
+=cut
+
        $multilayer->datalog_transaction('on'); #datalogをトランザクションモードで高速化する
 
-       $multilayer->learn($learndata);
+    for my $epoc ( 1 .. 10 ) {    # epocは10 
+        # バッチ毎に学習 バッチサイズ500 イテレーション10000
+        for (my $idx = 0 ; $idx <= 19 ; $idx++){
+           $multilayer->learn($interater->[$idx]);
+
+	   my $loss = $multilayer->loss();
+	   Logging(" epoc: $epoc batch: $idx 誤差関数 $loss ");
+        }
+    }
 
        #  $multilayer->disp_waits();
        $multilayer->dump_structure();
@@ -113,16 +157,17 @@ sub Logging {
 
     # x,yを与えて結果をまとめて出力をgnuplotでプロットさせる
 
-    my $point = 0;
-    for ( my $x = 1 ; $x <= 10 ; $x++  ) {
-        for ( my $y = 1 ; $y <= 10 ; $y++  ) {
+    my $po = 0;
+    for ( my $x = -10 ; $x <= 10 ; $x++  ) {
+        for ( my $y = -10 ; $y <= 10 ; $y++  ) {
                $multilayer->input( [ $x , $y ] );
             my $out = $multilayer->calc_multi();
-	    #say "onelayer0:  @{$out->[0]} ";
+	    #say $fh " $x $y $out->[0][$po] ";
 	    #say "onelayer1:  @{$out->[1]} ";
 	    #  say "onelayer2:  @{$out->[2]} ";
-	    say $fh " $x $y $out->[-1][$point] ";
-	    $point++;
+	    say $fh " $x $y $out->[-1]->[0] ";
+
+	    #$po++;
         }
     }
 
