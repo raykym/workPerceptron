@@ -143,7 +143,7 @@ sub calcSum {
     undef @waits;
     undef @input;
 
-    $self->{calc_sum} = $sum; 
+    $self->{calc_sum} = $sum;  # biasを除く
 
     return $self; # ->calcsum->ReLU() の為
 }

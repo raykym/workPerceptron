@@ -53,6 +53,10 @@ sub new {
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
 
        $self->{calc_multi_out} = undef; # clac_multiの結果を保持する　->lossで利用する
+       $self->{old_layerwaits} = undef;
+       $self->{new_layerwaits} = undef;
+       $self->{fillARRAY} = [];
+       $self->{backprobacation} = undef;
 
        $self->{datalog_name} = undef; # Datalog db file name
        $self->{datalog} = undef;
@@ -79,7 +83,7 @@ sub layer_init {
         input_count => '入力数',  最初に入力するデータ量
         learn_rate => 0.34
         layer_act_func => [ 'ReLU' , 'ReLU' .... , 'Step' ],  # layer_memberと同じ項目数 layer毎の活性化関数を指定
-        epoc => 100,    # エポック数  learn_limitよりも小さい数値を設定する
+        optimaizer => 'adam'.
      }
 =cut
     if (!@_) {
@@ -129,7 +133,7 @@ sub layer_init {
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
 			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
-			$self->{learn_limit} = (1 / $self->{learn_rate}); # limitは学習率の逆数 epocに相当
+			$self->{learn_limit} = (1 / $self->{learn_rate}); # limitは学習率の逆数
 		    }
 	    }; # sub ReLU
 
@@ -191,6 +195,59 @@ sub layer_init {
     push (@{$self->{layer}} , $self->{tmp}->{nodes});
     undef $self->{tmp};
     }
+    
+    # チェック比較時に利用する配列
+    for my $l ( 0 .. $self->{layer_count} ){
+        for my $n ( 0 .. $self->{layer_member}->[$l] ) {
+            push(@{$self->{fillARRAY}->[$l]} , 1); 
+        }
+    }
+
+    $self->{act_funcs}->{ReLU} = sub {
+        my ($self , $l , $n ) = @_;
+        my $second = undef;
+	# 活性化関数がReLUのケース
+	my $bias = $self->{layer}->[$l]->[$n]->bias(); 
+	if ( $out->[$l]->[$n] >= $bias ) {
+	    $second = 1; # 活性化関数 の微分 ReLU関数
+	} else {
+	    $second = 0;
+	}
+	return $second;
+    }; # sub
+
+# ReLUのデバッグ用None  -> 活性化関数無し
+    $self->{act_funcs}->{None} = sub {
+        my ($self , $l , $n ) = @_;
+        my $second = 1;  # 常時１
+=pod
+			# 活性化関数がReLUのケース
+			my $bias = $self->{layer}->[$l]->[$n]->bias(); 
+			if ( $out->[$l]->[$n] >= $bias ) {    # 古い記述 outがすべて0になる Perceptron.pmを修正しているのでこの記述でも行けるのでは？
+			##if ( $out->[$l]->[$n] > 0 ) {
+			    $second = 1; # 活性化関数 の微分 ReLU関数
+			} else {
+			    $second = 0;
+			}
+=cut
+
+	return $second;
+    }; # sub
+
+    $self->{act_funcs}->{Step} = sub {
+        my ($self , $l , $n ) = @_;
+        my $second = $out->[$l]->[$n];  # Step関数の微分
+        return $second;
+    }; # sub
+
+    $self->{act_funcs}->{Sigmoid} = sub {
+        my ($self , $l , $n ) = @_;
+        my $bias = $self->{layer}->[$l]->[$n]->bias();
+        my $calc_sum = $self->{layer}->[$l]->[$n]->calc_sum();
+           $calc_sum += $bias;
+        my $second = ( 1 - ( 1 / (1 + exp( -$calc_sum)))) * ( 1 / (1 + exp( -$calc_sum)));  # sigmoid関数の微分
+        return $second;
+    }; # sub
 
     $self->{stat} = "layer_inited";
     undef $subs;
@@ -392,7 +449,7 @@ sub learn {
 	}
     } 
 
-    my $debug = 0; # 0: off 1: on
+    my $debug = 1; # 0: off 1: on
     my $hand = 0; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
 
     $self->datalog_init(); 
@@ -406,6 +463,7 @@ sub learn {
 
     $self->{datalog}->begin_work() if $self->{datalog_transaction} eq 'on';
 
+=pod  # whileをコメントしたのでここもコメント ->layer_initに移動
     # チェック比較時に利用する配列
     my $fillARRAY = [];
     for my $l ( 0 .. $self->{layer_count} ){
@@ -413,6 +471,7 @@ sub learn {
             push(@{$fillARRAY->[$l]} , 1); 
         }
     }
+=cut
 
     my $loop = 0;
     # 入力して各層を計算していく
@@ -423,8 +482,7 @@ sub learn {
 	my $sample_count = 0;
 #        while ( $sample_flg ) {  
 
-=pod
-	# whileをコメントしたのでここもコメントに
+=pod	# whileをコメントしたのでここもコメントに
             if ($sample_count >= $self->{learn_limit} ) {
                 &::Logging("learn limit over!  $sample_count");
 		my $dump_strings = Dumper $sample;
@@ -448,10 +506,11 @@ sub learn {
 
             $self->input($self->{tmp});
 	    my $out = $self->calc_multi('learn');
+	       # $self->{calc_multi_out}にも同じ値が入っている
 
 	    undef $self->{tmp};
 
-=pod
+=pod   # biasのupdateに利用する目的で作ったが間違い　使わない
             # calc_sumを集計しておく ノード毎の活性化関数前の値
 	    # calc_sum()はアクセサー
 	    # 2乗誤差計算で使わなかった
@@ -465,7 +524,7 @@ sub learn {
             }
 =cut
 
-=pod
+=pod   # 学習の度にチェックしていたがパーセプトロンと違って多層の場合はここで判定しない
 	    # 出力層の結果をsampleのclassラベルと比較する
 	    my $outstring = join ("" , @{$out->[$self->{layer_count}]});
 	    my $sampleclassstring = join ("" , @{$sample->{class}});
@@ -503,76 +562,30 @@ sub learn {
 		#&::Logging("DEBUG: 誤差関数 $esum") ; # if $hand == 1;
 
                 # 現在のwaitsを取得する biasを除く
-		my $old_layerwaits = [];  # 3次元配列
+		$self->{old_layerwaits} = [];  # 3次元配列
 		for my $l ( 0 .. $self->{layer_count}) {
                     for my $node ( 0 .. $self->{layer_member}->[$l]) {
                         my $waits_old = $self->{layer}->[$l]->[$node]->waits();
-                        push(@{$old_layerwaits->[$l]} , $waits_old ); #waitsはノード単位
+                        push(@{$self->{old_layerwaits}->[$l]} , $waits_old ); #waitsはノード単位
 		    }	
                 } 
 		# 現在のbiasを取得する
-		my $old_layerbias = [];  # 3次元配列
+		$self->{old_layerbias} = [];  # 3次元配列
 		for my $l ( 0 .. $self->{layer_count}) {
                     for my $node ( 0 .. $self->{layer_member}->[$l]) {
                         my $bias_old = $self->{layer}->[$l]->[$node]->bias();
-                        push(@{$old_layerbias->[$l]} , $bias_old ); #biasはノード単位
+                        push(@{$self->{old_layerbias}->[$l]} , $bias_old ); #biasはノード単位
 		    }	
                 } 
 
 		&::Logging("DEBUG: old_layerwaits") if $debug == 1;
-#		print Dumper $old_layerwaits if $debug == 1;
+#		print Dumper $self->{old_layerwaits} if $debug == 1;
 		&::Logging("DEBUG: old_layerbias") if $debug == 1;
-#		print Dumper $old_layerbias if $debug == 1;
+#		print Dumper $self->{old_layerbias} if $debug == 1;
 		
-		my $act_funcs->{ReLU} = sub {
-		    my ($self , $l , $n ) = @_;
-		    my $second = undef;
-			# 活性化関数がReLUのケース
-			my $bias = $self->{layer}->[$l]->[$n]->bias(); 
-			if ( $out->[$l]->[$n] >= $bias ) {
-			    $second = 1; # 活性化関数 の微分 ReLU関数
-			} else {
-			    $second = 0;
-			}
-			return $second;
-		}; # sub
-
-		# ReLUのデバッグ用None  -> 活性化関数無し
-		$act_funcs->{None} = sub {
-		    my ($self , $l , $n ) = @_;
-		    my $second = 1;  # 常時１
-=pod
-			# 活性化関数がReLUのケース
-			my $bias = $self->{layer}->[$l]->[$n]->bias(); 
-			if ( $out->[$l]->[$n] >= $bias ) {    # 古い記述 outがすべて0になる Perceptron.pmを修正しているのでこの記述でも行けるのでは？
-			##if ( $out->[$l]->[$n] > 0 ) {
-			    $second = 1; # 活性化関数 の微分 ReLU関数
-			} else {
-			    $second = 0;
-			}
-=cut
-
-			return $second;
-		}; # sub
-
-		$act_funcs->{Step} = sub {
-		    my ($self , $l , $n ) = @_;
-		    my $second = $out->[$l]->[$n];  # Step関数の微分
-		    return $second;
-		}; # sub
-
-		$act_funcs->{Sigmoid} = sub {
-		    my ($self , $l , $n ) = @_;
-                    my $bias = $self->{layer}->[$l]->[$n]->bias();
-                    my $calc_sum = $self->{layer}->[$l]->[$n]->calc_sum();
-                       $calc_sum += $bias;
-		    my $second = ( 1 - ( 1 / (1 + exp( -$calc_sum)))) * ( 1 / (1 + exp( -$calc_sum)));  # sigmoid関数の微分
-		    return $second;
-		}; # sub
-
-		my $new_layerwaits = [];
-		my $new_layerbias = [];  # logの為だけに取得 計算上は不要
-		my $backprobacation = [];
+		$self->{new_layerwaits} = [];
+		$self->{new_layerbias} = [];  # logの為だけに取得 計算上は不要
+		$self->{backprobacation} = [];
                 # 出力層から順に処理する カウントダウンループ  l:レイヤー n:ノード w: wait入力層とその他でループが違う
 		for (my $l=$self->{layer_count}; $l>=0; $l--) {
                     for (my $n=$self->{layer_member}->[$l]; $n>=0; $n--) {
@@ -585,14 +598,14 @@ sub learn {
 				my ( $first , $second , $third ) = ( undef , undef , undef );
 		        # 入力層
 			        for my $nsum ( 0 .. $self->{layer_member}->[$l+1] ) {
-                                    $first += $backprobacation->[$l+1]->[$nsum]->[$n]->{first} * $backprobacation->[$l+1]->[$nsum]->[$n]->{second} * $new_layerwaits->[$l+1]->[$nsum]->[$n]; 
+                                    $first += $self->{backprobacation}->[$l+1]->[$nsum]->[$n]->{first} * $self->{backprobacation}->[$l+1]->[$nsum]->[$n]->{second} * $self->{new_layerwaits}->[$l+1]->[$nsum]->[$n]; 
 				}
 
-			        $second = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+			        $second = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 
 				$third = $sample->{input}->[$w]; # 入力値 ########
-				$backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 使わないけれどチェックしているので残している
-                                my $tmp = $old_layerwaits->[$l]->[$n]->[$w] - ( $learn_rate * $backprobacation->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{first} * $backprobacation->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{second} * $third );
+				$self->{backprobacation}->[$l]->[$n]->[$w] = clone({ first => $first , second => $second , thire => $third }); 
+                                my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $self->{backprobacation}->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{first} * $self->{backprobacation}->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{second} * $third );
                                 push (@{$waits_delta} , $tmp); #調整したwaits
 
 				undef $tmp;
@@ -610,13 +623,17 @@ sub learn {
 
 				    #  活性化関数に寄って変更される
 				    #  $second = $out->[$l]->[$n];   # 活性化関数の偏微分 ->出力値そのまま
-			            $second = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+			            $second = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+
+				    # $first * $second が一般のgradとされている値
 
                                     $third = $out->[$l-1]->[$w];   #入力から得られた結果の偏微分 -> 前の層からの入力
-				    $backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 次の層の計算で利用される
+				    $self->{backprobacation}->[$l]->[$n]->[$w] = clone({ first => $first , second => $second , third => $third }); # 次の層の計算で利用される
 
 				    &::Logging("DEBUG: learn_rate: $learn_rate first: $first second: $second third $third ") if $debug == 1;
-                                    my $tmp = $old_layerwaits->[$l]->[$n]->[$w] - ( $learn_rate * $first * $second * $third ); 
+				    #my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $first * $second * $third ); 
+                                    my $tmp = $self->optimaizer($l , $n , $w);
+
                                     push (@{$waits_delta} , $tmp);  # 調整したwaits 
 
 				    undef $tmp;
@@ -624,23 +641,29 @@ sub learn {
                                 # 中間層
 			        # waitsは後層すべてのノードに影響するので、合計が必要になる waitsの添字は現在のノード番号
 			            for my $nsum ( 0 .. $self->{layer_member}->[$l+1] ) {
-                                        $first += $backprobacation->[$l+1]->[$nsum]->[$n]->{first} * $backprobacation->[$l+1]->[$nsum]->[$n]->{second} * $new_layerwaits->[$l+1]->[$nsum]->[$n]; 
+				        $first += $self->{backprobacation}->[$l+1]->[$nsum]->[$n]->{first} * $self->{backprobacation}->[$l+1]->[$nsum]->[$n]->{second} * $self->{new_layerwaits}->[$l+1]->[$nsum]->[$n]; 
 				    }
-				    
 				    # $act_funcsに置き換わり 指定された活性化関数による
-			            $second = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
-
+			            $second = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
                                     $third = $out->[$l-1]->[$w];  # 前の層からの入力  ノードの番号はwaitsの添字
-				    $backprobacation->[$l]->[$n]->[$w] = clone({ first => $first , second => $second }); # 次の回の計算で利用される
 
+				    $self->{backprobacation}->[$l]->[$n]->[$w] = clone({ first => $first , second => $second , third => $third }); # 次の回の計算で利用される
+
+				    &::Logging("DEBUG: learn_rate: $learn_rate first: $first second: $second third $third ") if $debug == 1;
+=pod
 				    # 一つ後層の計算結果を利用する
                                     my $theta = undef;
 				    my $iota = undef;
                                     for my $node ( 0 .. $self->{layer_member}->[$l+1]) {
-                                       $theta += $backprobacation->[$l+1]->[$node]->[$n]->{first};   # 今の$nが後ろのwaitの添字
-				       $iota += $backprobacation->[$l+1]->[$node]->[$n]->{second};
+                                       $theta += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{first};   # 今の$nが後ろのwaitの添字
+				       $iota += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{second};
                                     }
                                     my $tmp = $old_layerwaits->[$l]->[$n]->[$w] - ( $learn_rate * $theta * $iota * $third );
+=cut
+				    # 上を1行で置き換えた biasから派生して考え違いをしていた　waitsが含まれていない
+				    #my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $first * $second * $third ); 
+				    my $tmp = $self->optimaizer($l , $n , $w);
+
                                     push (@{$waits_delta} , $tmp); #調整したwaits
                                     
                                     undef $tmp;
@@ -649,14 +672,18 @@ sub learn {
 		        } # if $l==0 esle
 
 			# biasの更新 (ここはノード単位で1回)
+			$self->optimaizer($l , $n);
+
+=pod   # optimaizerに移動
+			# biasの更新 (ここはノード単位で1回)
 			if ($l == $self->{layer_count} ) {
 			    #　出力層
-			    my $iota = $act_funcs->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+			    my $iota = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 			    my $bias = $self->{layer}->[$l]->[$n]->bias();
 			    #my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * $out->[$l-1]->[$n]); # biasが前段の入力を得ているのがおかしいかもしれない
 			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * 1); 
 			    $self->{layer}->[$l]->[$n]->bias($tmp);
-			    $new_layerbias->[$l]->[$n] = $tmp;
+			    $self->{new_layerbias}->[$l]->[$n] = $tmp;
 			    &::Logging("DEBUG: OUTLAYER learn_rate: $learn_rate bias: $bias iota: $iota new_bias: $tmp ") if $debug == 1;
                             
                             undef $tmp;
@@ -670,29 +697,31 @@ sub learn {
                             my $iota = undef;
                             for my $node ( 0 .. $self->{layer_member}->[$l+1] ) {
 				    # 一つ後ろの層のwaitsの添字が現在のノード番号になる
-                                $theta += $backprobacation->[$l+1]->[$node]->[$n]->{first}; 
-				$iota += $backprobacation->[$l+1]->[$node]->[$n]->{second};
+                                $theta += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{first}; 
+				$iota += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{second};
                             }
 			    my $tmp = $bias - ( $learn_rate * $theta * $iota * 1 ); # biasなので重み付けは1
                             $self->{layer}->[$l]->[$n]->bias($tmp);
-			    $new_layerbias->[$l]->[$n] = $tmp;
+			    $self->{new_layerbias}->[$l]->[$n] = $tmp;
 			    &::Logging("DEBUG: MIDDLELAYER learn_rate: $learn_rate bias: $bias iota: $iota theta: $theta new_bias: $tmp ") if $debug == 1;
 
 			    undef $tmp;
 			    undef $bias;
 			}
+=cut
+
                         # ノードのwaitsを保持する
-                        $new_layerwaits->[$l]->[$n] = clone($waits_delta); 
+                        $self->{new_layerwaits}->[$l]->[$n] = clone($waits_delta); 
 
 			&::Logging("DEBUG: backprobacation l: $l n: $n") if $debug == 1 ;
-#                        print Dumper $backprobacation if $debug == 1;
+#                        print Dumper $self->{backprobacation} if $debug == 1;
 		    } # for $n
 
 
 		} # for $l
 
 		&::Logging("DEBUG: new_layerwaits") if $debug == 1;
-#		print Dumper $new_layerwaits if $debug == 1;
+#		print Dumper $self->{new_layerwaits} if $debug == 1;
 
                 # new_layerwaitsに値が入っていることを確認して、
 		for my $l ( 0 .. $self->{layer_count} ) {
@@ -700,7 +729,7 @@ sub learn {
 			if ( $l == 0 ) {
 			    # 入力層
                             for my $w ( 0 .. $self->{input_count}) {
-                                if ( ! defined $new_layerwaits->[$l]->[$n]->[$w] ) {
+                                if ( ! defined $self->{new_layerwaits}->[$l]->[$n]->[$w] ) {
                                     croak "new_layerwaits undef detected!! l: $l n: $n w: $w";
 				    exit;
 			        }
@@ -708,7 +737,7 @@ sub learn {
 			} else {
 			    # 中間層、出力層
                             for my $w ( 0 .. $self->{layer_member}->[$l-1] ) {
-                                if ( ! defined $new_layerwaits->[$l]->[$n]->[$w] ) {
+                                if ( ! defined $self->{new_layerwaits}->[$l]->[$n]->[$w] ) {
                                     croak "new_layerwaits undef detected!! l: $l n: $n w: $w";
 				    exit;
 			        }
@@ -720,21 +749,21 @@ sub learn {
 		# 各ノードにwaitsを再設定する
 		for my $l ( 0 .. $self->{layer_count} ) {
                     for my $n ( 0 .. $self->{layer_member}->[$l] ) {
-                        $self->{layer}->[$l]->[$n]->waits($new_layerwaits->[$l]->[$n]);
+                        $self->{layer}->[$l]->[$n]->waits($self->{new_layerwaits}->[$l]->[$n]);
                     }
 		}
 
-	# データ量が大きくなるのでコメントアウト中
-=pod
+
+=pod   # データ量が大きくなるのでコメントアウト中
 		my $new_structure = { 
 			              layer_init => $self->{initdata},
-			              waits => $new_layerwaits,
-			              bias => $new_layerbias,
+			              waits => $self->{new_layerwaits},
+			              bias => $self->{new_layerbias},
 				      node_out => $out,
 				      node_sum => $calc_sum,
 			            }; 
 
-		my $new_structure_strings = Dumper $new_structure;
+		my $new_structure_strings = Dumper $self->{new_structure};
 
 		if ($self->{datalog_transaction} eq 'on' ) {
 
@@ -757,6 +786,9 @@ sub learn {
 		&::Logging("DEBUG: loop $loop Change waits value  ------------------------") if $hand == 1;
 		&::Logging("DEBUG: loop $loop Retry! $sample_count ------------------------") if $debug == 1;
 
+#		$self->waitsChangeCheck($loop); # 思ったような動作にならないので封印
+
+=pod # whileをコメントしたのでここもコメント  ->waitsChangeCheck()に移動
                 # waitsの値が変化していないとループを抜ける仕組み
                 my $check = [];
                 for my $l ( 0 .. $self->{layer_count} ) {
@@ -770,12 +802,15 @@ sub learn {
 			}
                     }
                 }
+=cut
 
-		undef $new_layerwaits;
+		#undef $self->{new_layerwaits};
+
+=pod # whileをコメントしたのでこの処理もコメントする  ->waitsChangeCheck()に移動
 		
                 for my $l ( 0 .. $self->{layer_count} ) {
                     my $checkstring = join ("" , @{$check->[$l]}); 
-		    my $fillstring = join ("", @{$fillARRAY->[$l]});
+		    my $fillstring = join ("", @{$self->{fillARRAY}->[$l]});
 
                     if ($checkstring eq $fillstring) {
 			    # レイヤー毎にチェックする
@@ -783,14 +818,15 @@ sub learn {
 			$sample_flg = 0;
 		    } 
                 }
+=cut
 		
 =pod   # 値が変化しなくなるのでコメントアウト
                 # biasの値が変化していないとループを抜ける仕組み
                 $check = []; # 再度初期化
                 for my $l ( 0 .. $self->{layer_count} ) {
                     for my $n ( 0 .. $self->{layer_member}->[$l] ) {
-                        my $oldbiasstring = join ("" , @{$old_layerbias->[$l]->[$n]});
-			my $newbiasstring = join ("" , @{$new_layerbias->[$l]->[$n]});
+                        my $oldbiasstring = join ("" , @{$self->{old_layerbias}->[$l]->[$n]});
+			my $newbiasstring = join ("" , @{$self->{new_layerbias}->[$l]->[$n]});
                         if ( $oldwaitsstring eq $newwaitsstring ) {
                             push( @{$check->[$l]} , 1);  # 一致
 			} else {
@@ -800,9 +836,9 @@ sub learn {
                 }
 =cut
 
-		undef $new_layerbias;
+		#	undef $self->{new_layerbias};
 
-=pod
+=pod  # 値が変化しなくなるのでコメント
                 for my $l ( 0 .. $self->{layer_count} ) {
                     my $checkstring = join ("" , @{$check->[$l]}); 
 		    my $fillstring = join ("", @{$fillARRAY->[$l]});
@@ -824,6 +860,7 @@ sub learn {
 
     $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 
+=pod # 学習の度にチェックして完了を{stat}に記録するつもりで用意したが、これは使わない
     &::Logging("DEBUG: learn_finish data") if $debug == 1;
     # class毎の学習が完了したか目視用のDump
     &::Logging("class learn check dump self->{learn_finish}") if $hand == 1;
@@ -849,6 +886,9 @@ sub learn {
 
         $self->stat('learned');
     }
+=cut
+
+
     undef $self->{learn_input};
 
     return $self->{stat};  # 完了ならlearndでなければlayer_initedが返る
@@ -874,6 +914,104 @@ sub loss {
 	undef $out;
 
 	return $esum;
+}
+
+sub waitsChangeCheck {
+    my ( $self , $loop ) = @_;
+    # learn メソッド内でチェックを行う
+
+    if ( ! defined $loop ) {
+        return;   # PASS
+    }
+
+    if (( ! defined $self->{old_layerwaits} ) || ( ! defined $self->{new_layerwaits} ) ) {
+        &::Logging("INFO: old_layerwaits or new_layerwaits undefined");
+        return;
+    }
+    
+    # waitsの値が変化していないかチェックしてメッセージを表示する
+    my $check = [];
+    for my $l ( 0 .. $self->{layer_count} ) {
+        for my $n ( 0 .. $self->{layer_member}->[$l] ) {
+            my $oldwaitsstring = join ("" , @{$self->{old_layerwaits}->[$l]->[$n]});
+            my $newwaitsstring = join ("" , @{$self->{new_layerwaits}->[$l]->[$n]});
+            if ( $oldwaitsstring eq $newwaitsstring ) {
+                push( @{$check->[$l]} , 1);  # 一致
+	    } else {
+                push( @{$check->[$l]} , 0);  # 不一致
+	    }
+        }
+    }
+
+
+    for my $l ( 0 .. $self->{layer_count} ) {
+        my $checkstring = join ("" , @{$check->[$l]}); 
+	my $fillstring = join ("", @{$self->{fillARRAY}->[$l]});
+
+    &::Logging("DEBUG: l: $l  checkstring: $checkstring ");
+
+        if ($checkstring eq $fillstring) {
+	    # レイヤー毎にチェックする
+            &::Logging("DEBUG: loop: $loop waits no change!!! layer $l ");
+	    } 
+    }
+    return;
+}
+
+sub optimaizer {
+    my ($self , $l , $n , $w ) = @_;
+    # layer_initでoptimaizeerが指定されていると、ここで処理を加える。
+
+    if ((( ! defined $self->{initdata}->{optimaizer} ) || ( $self->{initdata}->{optimaizer} eq 'None' )) && (defined $w )) {
+    # optimaizerの指定がないまたは’None'の場合waitの更新
+
+        my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $first * $second * $third ); 
+
+        return $tmp;
+    } elsif ( ! defined $w ) {
+    # $w が指定されないとbiasの更新
+    #
+			# biasの更新 (ここはノード単位で1回)
+			if ($l == $self->{layer_count} ) {
+			    #　出力層
+			    my $iota = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+			    my $bias = $self->{layer}->[$l]->[$n]->bias();
+			    #my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * $out->[$l-1]->[$n]); # biasが前段の入力を得ているのがおかしいかもしれない
+			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * 1); 
+			    $self->{layer}->[$l]->[$n]->bias($tmp);
+			    $self->{new_layerbias}->[$l]->[$n] = $tmp;
+			    &::Logging("DEBUG: OUTLAYER learn_rate: $learn_rate bias: $bias iota: $iota new_bias: $tmp ") if $debug == 1;
+                            
+                            undef $tmp;
+			    undef $bias;
+			    undef $iota;
+		        } elsif ( $l < $self->{layer_count} ) {
+			    # 中間層
+			    my $bias = $self->{layer}->[$l]->[$n]->bias();
+			    say "l: $l n: $n back_n: $self->{layer_member}->[$l+1] " if $debug == 1;
+			    my $theta = undef;
+                            my $iota = undef;
+                            for my $node ( 0 .. $self->{layer_member}->[$l+1] ) {
+				    # 一つ後ろの層のwaitsの添字が現在のノード番号になる
+                                $theta += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{first}; 
+				$iota += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{second};
+                            }
+			    my $tmp = $bias - ( $learn_rate * $theta * $iota * 1 ); # biasなので重み付けは1
+                            $self->{layer}->[$l]->[$n]->bias($tmp);
+			    $self->{new_layerbias}->[$l]->[$n] = $tmp;
+			    &::Logging("DEBUG: MIDDLELAYER learn_rate: $learn_rate bias: $bias iota: $iota theta: $theta new_bias: $tmp ") if $debug == 1;
+
+			    undef $tmp;
+			    undef $bias;
+			}
+
+        return; # 戻り値無し
+    }
+
+
+    my $res = 0; 
+
+    return $res;
 }
 
 sub stat {

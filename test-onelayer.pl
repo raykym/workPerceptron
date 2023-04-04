@@ -83,7 +83,7 @@ sub Logging {
 
     undef $createdata; # メモリ開放
 
-    #バッチ、イテレータに分割
+    #バッチに分割
     for my $i ( 1 .. 20 ) {
 	my $tmp = [];
         for my $j ( 1 .. 500 ) {
@@ -100,10 +100,15 @@ sub Logging {
 
 
     my $structure = { 
-	              layer_member  => [ 99 , 99 , 99 , 0 ],
+	    #  layer_member  => [ 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 0 ],
+	              layer_member  => [ 2 , 2 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.001,
-		      layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
+		      learn_rate => 0.0001,
+           #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'None' ],
+	   # layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
+	   # layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
+	              layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
+		      optimaizer => 'None' ,
 	            };
 
 
@@ -128,9 +133,10 @@ sub Logging {
     close $fh1;
 =cut
 
-       $multilayer->datalog_transaction('on'); #datalogをトランザクションモードで高速化する
+    $multilayer->datalog_transaction('on'); #datalogをトランザクションモードで高速化する
+    my $epoc = 1;
 
-    for my $epoc ( 1 .. 10 ) {    # epocは10 
+    for my $epoc ( 1 .. $epoc ) {  
         # バッチ毎に学習 バッチサイズ500 イテレーション10000
         for (my $idx = 0 ; $idx <= 19 ; $idx++){
            $multilayer->learn($interater->[$idx]);
