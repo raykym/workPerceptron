@@ -51,6 +51,7 @@ sub new {
        $self->{input} = undef ;
        $self->{learn_limit} = 2000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
+       $self->{debug_flg} = 1; # 0:off 1:on 
 
        $self->{calc_multi_out} = undef; # clac_multiの結果を保持する　->lossで利用する
        $self->{old_layerwaits} = undef;
@@ -449,7 +450,7 @@ sub learn {
 	}
     } 
 
-    my $debug = 1; # 0: off 1: on
+    my $debug = $self->{debug_flg}; # 0: off 1: on
     my $hand = 0; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
 
     $self->datalog_init(); 
@@ -605,7 +606,10 @@ sub learn {
 
 				$third = $sample->{input}->[$w]; # 入力値 ########
 				$self->{backprobacation}->[$l]->[$n]->[$w] = clone({ first => $first , second => $second , thire => $third }); 
-                                my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $self->{backprobacation}->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{first} * $self->{backprobacation}->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{second} * $third );
+				&::Logging("DEBUG: learn_rate: $learn_rate first: $first second: $second third $third ") if $debug == 1;
+				#my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $self->{backprobacation}->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{first} * $self->{backprobacation}->[$l+1]->[$self->{layer_member}->[$l+1]]->[$n]->{second} * $third );
+
+                                my $tmp = $self->optimaizer($l , $n , $w);
                                 push (@{$waits_delta} , $tmp); #調整したwaits
 
 				undef $tmp;
@@ -962,6 +966,9 @@ sub optimaizer {
     my ($self , $l , $n , $w ) = @_;
     # layer_initでoptimaizeerが指定されていると、ここで処理を加える。
 
+    my $debug = $self->{debug_flg}; # 0:off 1:on
+    my $learn_rate = $self->{layer}->[$l]->[$n]->learn_rate();
+
     if ((( ! defined $self->{initdata}->{optimaizer} ) || ( $self->{initdata}->{optimaizer} eq 'None' )) && (defined $w )) {
     # optimaizerの指定がないまたは’None'の場合waitの更新
 
@@ -977,7 +984,7 @@ sub optimaizer {
 			    my $iota = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 			    my $bias = $self->{layer}->[$l]->[$n]->bias();
 			    #my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * $out->[$l-1]->[$n]); # biasが前段の入力を得ているのがおかしいかもしれない
-			    my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * 1); 
+			    my $tmp = $bias - ( $learn_rate *  ($self->{calc_multi_out}->[$l]->[$n] - $sample->{class}->[$n]) * $iota * 1); 
 			    $self->{layer}->[$l]->[$n]->bias($tmp);
 			    $self->{new_layerbias}->[$l]->[$n] = $tmp;
 			    &::Logging("DEBUG: OUTLAYER learn_rate: $learn_rate bias: $bias iota: $iota new_bias: $tmp ") if $debug == 1;
