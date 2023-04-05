@@ -58,6 +58,7 @@ sub new {
        $self->{new_layerwaits} = undef;
        $self->{fillARRAY} = [];
        $self->{backprobacation} = undef;
+       $self->{act_func} = undef; # 活性化関数の微分をそれぞれ用意する
 
        $self->{datalog_name} = undef; # Datalog db file name
        $self->{datalog} = undef;
@@ -965,6 +966,7 @@ sub waitsChangeCheck {
 sub optimaizer {
     my ($self , $l , $n , $w ) = @_;
     # layer_initでoptimaizeerが指定されていると、ここで処理を加える。
+    # waitsとbiasを更新する
 
     my $debug = $self->{debug_flg}; # 0:off 1:on
     my $learn_rate = $self->{layer}->[$l]->[$n]->learn_rate();
@@ -972,7 +974,7 @@ sub optimaizer {
     if ((( ! defined $self->{initdata}->{optimaizer} ) || ( $self->{initdata}->{optimaizer} eq 'None' )) && (defined $w )) {
     # optimaizerの指定がないまたは’None'の場合waitの更新
 
-        my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $first * $second * $third ); 
+        my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $self->{backprobacation}->[$l]->[$n]->[$w]->{first} * $self->{backprobacation}->[$l]->[$n]->[$w]->{second} * $self->{backprobacation}->[$l]->[$n]->[$w]->{third} ); 
 
         return $tmp;
     } elsif ( ! defined $w ) {
@@ -1015,10 +1017,22 @@ sub optimaizer {
         return; # 戻り値無し
     }
 
+    if ( $self->{initdata}->{optimaizer} eq 'adam' ) {
+    # adamによるwaitsの調整
 
-    my $res = 0; 
 
-    return $res;
+
+
+    } elsif ( ! defined $w ) {
+    # adamによるbiasの調整
+
+
+
+    }
+
+
+
+    return;
 }
 
 sub stat {
