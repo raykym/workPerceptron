@@ -51,14 +51,21 @@ sub new {
        $self->{input} = undef ;
        $self->{learn_limit} = 2000;   # 学習データ1個に対して、waitsの更新を制限する。しかし、waitsに変化がないと抜けるのでlimitになっていない
        $self->{learn_finish} = {};  #学習が終わるためのチェックリスト　ハッシュでclassラベルをチェックする
-       $self->{debug_flg} = 1; # 0:off 1:on 
+       $self->{debug_flg} = 0; # 0:off 1:on 
 
        $self->{calc_multi_out} = undef; # clac_multiの結果を保持する　->lossで利用する
        $self->{old_layerwaits} = undef;
        $self->{new_layerwaits} = undef;
        $self->{fillARRAY} = [];
        $self->{backprobacation} = undef;
+       $self->{adam_waits} = undef; # waits用 v,sを記録しておく adamで利用
+       $self->{adam_bias} = undef; #bias用 backprobacation adamで利用
        $self->{act_func} = undef; # 活性化関数の微分をそれぞれ用意する
+       $self->{adam_params} = { 
+	                        mini_num => 1e-8,
+	                        moment_beta => 0.9,
+	                        rms_beta => 0.999,
+			      };
 
        $self->{datalog_name} = undef; # Datalog db file name
        $self->{datalog} = undef;
@@ -677,7 +684,7 @@ sub learn {
 		        } # if $l==0 esle
 
 			# biasの更新 (ここはノード単位で1回)
-			$self->optimaizer($l , $n);
+			$self->optimaizer($l , $n , undef , $sample );  #waitは無いので入力しないとbiasの更新に成る
 
 =pod   # optimaizerに移動
 			# biasの更新 (ここはノード単位で1回)
@@ -964,9 +971,10 @@ sub waitsChangeCheck {
 }
 
 sub optimaizer {
-    my ($self , $l , $n , $w ) = @_;
+    my ($self , $l , $n , $w , $sample ) = @_;
     # layer_initでoptimaizeerが指定されていると、ここで処理を加える。
     # waitsとbiasを更新する
+    # learnメソッドのループ内で利用する
 
     my $debug = $self->{debug_flg}; # 0:off 1:on
     my $learn_rate = $self->{layer}->[$l]->[$n]->learn_rate();
@@ -977,15 +985,16 @@ sub optimaizer {
         my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $self->{backprobacation}->[$l]->[$n]->[$w]->{first} * $self->{backprobacation}->[$l]->[$n]->[$w]->{second} * $self->{backprobacation}->[$l]->[$n]->[$w]->{third} ); 
 
         return $tmp;
-    } elsif ( ! defined $w ) {
+    } elsif (( ! defined $w ) && ( $self->{initdata}->{optimaizer} eq 'None' ))  {
     # $w が指定されないとbiasの更新
     #
-			# biasの更新 (ここはノード単位で1回)
+			# biasの更新 (ここはノード単位で1回) 後段のwaitsの更新が済んでいることが前提
 			if ($l == $self->{layer_count} ) {
 			    #　出力層
 			    my $iota = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 			    my $bias = $self->{layer}->[$l]->[$n]->bias();
 			    #my $tmp = $bias - ( $learn_rate *  ($out->[$l]->[$n] - $sample->{class}->[$n]) * $iota * $out->[$l-1]->[$n]); # biasが前段の入力を得ているのがおかしいかもしれない
+			    #&::Logging("DEBUG: sample found!") if defined $sample ;
 			    my $tmp = $bias - ( $learn_rate *  ($self->{calc_multi_out}->[$l]->[$n] - $sample->{class}->[$n]) * $iota * 1); 
 			    $self->{layer}->[$l]->[$n]->bias($tmp);
 			    $self->{new_layerbias}->[$l]->[$n] = $tmp;
@@ -1014,23 +1023,102 @@ sub optimaizer {
 			    undef $bias;
 			}
 
-        return; # 戻り値無し
-    }
+    } elsif (( $self->{initdata}->{optimaizer} eq 'adam' ) &&( defined $w )) {
+    # adamによるwaitsの調整 wait値を戻す
+	my $grad = $self->{backprobacation}->[$l]->[$n]->[$w]->{first} * $self->{backprobacation}->[$l]->[$n]->[$w]->{second} * $self->{backprobacation}->[$l]->[$n]->[$w]->{third};
+	my $mini_num = $self->{adam_params}->{mini_num};
+	my $beta1 = $self->{adam_params}->{moment_beta};
+	my $beta2 = $self->{adam_params}->{rms_beta};
 
-    if ( $self->{initdata}->{optimaizer} eq 'adam' ) {
-    # adamによるwaitsの調整
+	# 出力層では以前の値がないので0を代入する
+	my $v_old = $self->{adam_waits}->[$l]->[$n]->[$w]->{v};
+	   $v_old = 0 if ! defined $v_old;  # 未定義なら0
+	my $s_old = $self->{adam_waits}->[$l]->[$n]->[$w]->{s};
+	   $s_old = 0 if ! defined $s_old;
+        my $v = $beta1 * $v_old + ( 1 - $beta1 ) * $grad;
+        my $s = $beta2 * $s_old + ( 1 - $beta2 ) * $grad ** 2;
+	    
+	# 値を記録しておく 書き換えられる
+        $self->{adam_waits}->[$l]->[$n]->[$w]->{v} = $v;
+	$self->{adam_waits}->[$l]->[$n]->[$w]->{s} = $s;
 
+	my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * ( $v / sqrt ( $s + $mini_num ) ));
 
+	&::Logging("DEBUG: v_old: $v_old v: $v s_old: $s_old s: $s ") if $debug == 1;
 
+	return $tmp;
 
-    } elsif ( ! defined $w ) {
+    } elsif (( ! defined $w ) && ( $self->{initdata}->{optimaizer} eq 'adam' )) {
     # adamによるbiasの調整
 
+    # biasの更新 (ここはノード単位で1回) 後段のwaitsの更新が済んでいることが前提
+        if ($l == $self->{layer_count} ) {
+	    #　出力層
+	    my $iota = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
+	    my $bias = $self->{layer}->[$l]->[$n]->bias();
 
+	    my $grad = ($self->{calc_multi_out}->[$l]->[$n] - $sample->{class}->[$n] ) * $iota * 1;
+	    my $mini_num = $self->{adam_params}->{mini_num};
+	    my $beta1 = $self->{adam_params}->{moment_beta};
+	    my $beta2 = $self->{adam_params}->{rms_beta};
 
-    }
+	    my $v_old = $self->{adam_bias}->[$l]->[$n]->{v};
+	       $v_old = 0 if ! defined $v_old; 
+	    my $s_old = $self->{adam_bias}->[$l]->[$n]->{s};
+	       $s_old = 0 if ! defined $s_old;
+            my $v = $beta1 * $v_old + ( 1 - $beta1 ) * $grad;
+            my $s = $beta2 * $s_old + ( 1 - $beta2 ) * $grad ** 2;
+	    
+	    # 値を記録しておく 書き換える
+            $self->{adam_bias}->[$l]->[$n]->{v} = $v;
+	    $self->{adam_bias}->[$l]->[$n]->{s} = $s;
 
+	    my $tmp = $bias - ( $learn_rate * ( $v / sqrt ( $s + $mini_num ) ));
 
+	    $self->{layer}->[$l]->[$n]->bias($tmp);
+	    $self->{new_layerbias}->[$l]->[$n] = $tmp;
+	    &::Logging("DEBUG: OUTLAYER learn_rate: $learn_rate bias: $bias iota: $iota new_bias: $tmp v_old: $v_old v: $v s_old: $s_old s: $s ") if $debug == 1;
+                            
+            undef $tmp;
+	    undef $bias;
+	    undef $iota;
+
+	} elsif ( $l < $self->{layer_count} ) {
+	    # 中間層
+	    my $bias = $self->{layer}->[$l]->[$n]->bias();
+	    say "l: $l n: $n back_n: $self->{layer_member}->[$l+1] " if $debug == 1;
+	    my $theta = undef;
+            my $iota = undef;
+            for my $node ( 0 .. $self->{layer_member}->[$l+1] ) {
+	        # 一つ後ろの層のwaitsの添字が現在のノード番号になる
+                $theta += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{first}; 
+		$iota += $self->{backprobacation}->[$l+1]->[$node]->[$n]->{second};
+            }
+
+	    my $grad = $theta * $iota * 1;   # biasなので1
+	    my $mini_num = $self->{adam_params}->{mini_num};
+	    my $beta1 = $self->{adam_params}->{moment_beta};
+	    my $beta2 = $self->{adam_params}->{rms_beta};
+
+	    my $v_old = $self->{adam_bias}->[$l]->[$n]->{v};
+	    my $s_old = $self->{adam_bias}->[$l]->[$n]->{s};
+            my $v = $beta1 * $v_old + ( 1 - $beta1 ) * $grad;
+            my $s = $beta2 * $s_old + ( 1 - $beta2 ) * $grad ** 2;
+	    # 値を記録しておく 書き換える
+            $self->{adam_bias}->[$l]->[$n]->{v} = $v;
+	    $self->{adam_bias}->[$l]->[$n]->{s} = $s;
+
+	    my $tmp = $bias - ( $learn_rate * ( $v / sqrt ( $s + $mini_num ) ));
+
+            $self->{layer}->[$l]->[$n]->bias($tmp);
+	    $self->{new_layerbias}->[$l]->[$n] = $tmp;
+	    &::Logging("DEBUG: MIDDLELAYER learn_rate: $learn_rate bias: $bias iota: $iota theta: $theta new_bias: $tmp v_old: $v_old v: $v s_old: $s_old s: $s ") if $debug == 1;
+
+	    undef $tmp;
+	    undef $bias;
+	}
+
+    } # elsif $w
 
     return;
 }

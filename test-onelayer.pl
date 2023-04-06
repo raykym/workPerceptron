@@ -101,14 +101,15 @@ sub Logging {
 
     my $structure = { 
 	    #  layer_member  => [ 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 0 ],
-	              layer_member  => [ 2 , 2 , 0 ],
+	              layer_member  => [ 299 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.0001,
+		      learn_rate => 0.00001,
            #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'None' ],
 	   # layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
-	   # layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
-	              layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
-		      optimaizer => 'None' ,
+	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
+	   #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
+	              layer_act_func => [ 'Sigmoid' , 'None' ],
+		      optimaizer => 'adam' ,
 	            };
 
 
@@ -134,15 +135,20 @@ sub Logging {
 =cut
 
     $multilayer->datalog_transaction('on'); #datalogをトランザクションモードで高速化する
-    my $epoc = 1;
+    my $epoc = 200;
 
     for my $epoc ( 1 .. $epoc ) {  
+	my $loss;
         # バッチ毎に学習 バッチサイズ500 イテレーション10000
         for (my $idx = 0 ; $idx <= 19 ; $idx++){
            $multilayer->learn($interater->[$idx]);
 
-	   my $loss = $multilayer->loss();
+	   $loss = $multilayer->loss();
 	   Logging(" epoc: $epoc batch: $idx 誤差関数 $loss ");
+        }
+        if ( $loss <= 0 ) {
+	   Logging(" Interupt... " );
+           last;
         }
     }
 
