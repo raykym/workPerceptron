@@ -136,7 +136,7 @@ sub calcSum {
 	exit;
     }
 
-    my $sum = 0;
+    my $sum = undef;
 
     $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
 
@@ -302,13 +302,18 @@ sub waitsinit {
         if ($_[0] =~ /\d?/) {
             my $cnt = $_[0]; # waitの数
 	    my $node_count = $_[1];  # He初期化用
+	    my $init_name = $_[2]; # 初期化名 He , Xavire
 
 	    for (my $i=0; $i<=$cnt; $i++) {
-		# He初期化パラメータがある場合
-		if ( defined $node_count ) {
+	        if (( defined $node_count ) && ( $init_name eq 'He' )) {
                     my $rand = rand( 2 / $node_count );
 	            push(@waits , $rand);
-		} else {
+
+                } elsif (( defined $node_count ) && ( $init_name eq 'Xavier')) {
+                    my $rand = rand( 1 / $node_count );
+	            push(@waits , $rand);
+
+	        } elsif ( ! defined $node_count ) {
 	            my $rand = rand(1);
 	            push(@waits , $rand);
 	        }
@@ -317,16 +322,20 @@ sub waitsinit {
 
 
 	    if ( defined $node_count ) {
-                my $rand = rand( 2 / $node_count );
-                $self->bias($rand);
+		#my $rand = rand( 2 / $node_count );
+		#$self->bias($rand);
+                $self->bias(0);  #0で初期化
 	    } else {
-                my $rand = rand(1);
-                $self->bias($rand);
+		#my $rand = rand(1);
+		#$self->bias($rand);
+                $self->bias(0);  # 0で初期化
             }
 
             return;
         }
-    }
+    } # if @_
+
+    # perceptronの単体利用の場合の初期化
 
     if ( $self->{input} =~ /ARRAY/) {
         my @tmp = @{$self->{input}};

@@ -71,7 +71,9 @@ sub Logging {
     my $data_cnt = $#tmp;
     undef @tmp;
 
-    for my $cnt ( 1 .. 10000 ) {
+    my $picup_cnt = 10000; # ピックアップデータ数
+
+    for my $cnt ( 1 .. $picup_cnt ) {
         my $choice = int(rand($data_cnt));
 	my $sample = $createdata->[$choice];
         push(@{$learndata} , $sample);
@@ -83,10 +85,13 @@ sub Logging {
 
     undef $createdata; # メモリ開放
 
+    my $batch = 500;   # バッチ数
+    my $intre = int( 10000 / $batch );  # インテレート数
+
     #バッチに分割
-    for my $i ( 1 .. 20 ) {
+    for my $i ( 1 .. $intre ) {
 	my $tmp = [];
-        for my $j ( 1 .. 500 ) {
+        for my $j ( 1 .. $batch ) {
 	    push(@{$tmp} , shift(@{$learndata}));
         }
         push(@{$interater} , $tmp);
@@ -101,14 +106,18 @@ sub Logging {
 
     my $structure = { 
 	    #  layer_member  => [ 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 0 ],
-	              layer_member  => [ 299 , 0 ],
+	              layer_member  => [ 9 , 0 ],
+	    #  layer_member  => [ 9 , 9 , 0 ],
+	    #  layer_member  => [ 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.00001,
+		      learn_rate => 0.001,
            #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'None' ],
-	   # layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
+	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
 	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
 	   #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
-	              layer_act_func => [ 'Sigmoid' , 'None' ],
+	   #  layer_act_func => [ 'None' ],
+	              layer_act_func => [ 'Sigmoid' , 'Sigmoid' ],
+	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
 		      optimaizer => 'adam' ,
 	            };
 
@@ -121,7 +130,6 @@ sub Logging {
 
        #   $multilayer->disp_waits();
 
-=pod
     # 学習前に入力して出力を確認する
     open ( my $fh1 , '>' , './onelayer_nolearn.txt');
     for ( my $x = -10 ; $x <= 10 ; $x++  ) {
@@ -132,21 +140,24 @@ sub Logging {
         }
     }
     close $fh1;
-=cut
 
     $multilayer->datalog_transaction('on'); #datalogをトランザクションモードで高速化する
-    my $epoc = 200;
+    my $epoc = 10;
 
     for my $epoc ( 1 .. $epoc ) {  
-	my $loss;
-        # バッチ毎に学習 バッチサイズ500 イテレーション10000
+	my $loss = undef;
+        # バッチ毎に学習 バッチサイズ500 イテレーション数20
         for (my $idx = 0 ; $idx <= 19 ; $idx++){
            $multilayer->learn($interater->[$idx]);
 
 	   $loss = $multilayer->loss();
 	   Logging(" epoc: $epoc batch: $idx 誤差関数 $loss ");
+
+           if ( $loss <= 1e-04 ) {
+               last;
+           }
         }
-        if ( $loss <= 0 ) {
+        if ( $loss <= 1e-04 ) {
 	   Logging(" Interupt... " );
            last;
         }

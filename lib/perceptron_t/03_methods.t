@@ -99,7 +99,7 @@ subtest 'waitsinit methos check' => sub {
     dies_ok( sub { $obj->waitsinit($array) } , 'not number' );
 
     $obj = Perceptron->new;
-    $obj->waitsinit(4 , 3 );
+    $obj->waitsinit(4 , 3 , 'He');
     $res = $obj->waits();
     @res = @{$res};
     $bias = $obj->bias();

@@ -62,7 +62,7 @@ sub new {
        $self->{adam_bias} = undef; #bias用 backprobacation adamで利用
        $self->{act_func} = undef; # 活性化関数の微分をそれぞれ用意する
        $self->{adam_params} = { 
-	                        mini_num => 1e-8,
+	                        mini_num => 1e-12,
 	                        moment_beta => 0.9,
 	                        rms_beta => 0.999,
 			      };
@@ -129,14 +129,13 @@ sub layer_init {
 	    my $subs->{ReLU} =  sub {  
 		    my ($self , $l , $n ) = @_;
 
+		    my $node_count = $self->{layer_member}->[$l] + 1;
 		    if ( $l == 0 ) {
 			# He初期化のためレイヤーのノード数を送る
-			my $node_count = $self->{layer_member}->[$l] + 1;
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count);
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count , 'He' );
 			#$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
 		    } else {
-			my $node_count = $self->{layer_member}->[$l] + 1;
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count);  # 一つ前の階層のノード数
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count , 'He' );  # 一つ前の階層のノード数
 			#$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
 		    }
 		    if ( defined $self->{learn_rate} ) {
@@ -147,7 +146,7 @@ sub layer_init {
 	    }; # sub ReLU
 
 	    # ReLUのデバッグのためにNoneオプションを作成 -> 活性化関数無しに変更
-	       $subs->{None} =  sub {  
+	    $subs->{None} =  sub {  
 		    my ($self , $l , $n ) = @_;
 
 		    if ( $l == 0 ) {
@@ -184,11 +183,13 @@ sub layer_init {
 
 	    $subs->{Sigmoid} = sub {
 		    my ($self , $l , $n ) = @_;
+		    # Xavier初期化
 
+		    my $node_count = $self->{layer_member}->[$l] + 1;
 		    if ( $l == 0 ) {
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count , 'Xavier' );  # 乱数初期化
 		    } else {
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count , 'Xavier' );  #乱数初期化 
 		    }
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
@@ -1046,6 +1047,15 @@ sub optimaizer {
 
 	&::Logging("DEBUG: v_old: $v_old v: $v s_old: $s_old s: $s ") if $debug == 1;
 
+	undef $mini_num;
+	undef $beta1;
+	undef $beta2;
+	undef $v_old;
+	undef $v;
+	undef $s_old;
+	undef $s;
+	undef $grad;
+
 	return $tmp;
 
     } elsif (( ! defined $w ) && ( $self->{initdata}->{optimaizer} eq 'adam' )) {
@@ -1083,6 +1093,15 @@ sub optimaizer {
 	    undef $bias;
 	    undef $iota;
 
+	    undef $mini_num;
+	    undef $beta1;
+	    undef $beta2;
+	    undef $v_old;
+	    undef $v;
+	    undef $s_old;
+	    undef $s;
+	    undef $grad;
+
 	} elsif ( $l < $self->{layer_count} ) {
 	    # 中間層
 	    my $bias = $self->{layer}->[$l]->[$n]->bias();
@@ -1116,6 +1135,15 @@ sub optimaizer {
 
 	    undef $tmp;
 	    undef $bias;
+
+	    undef $mini_num;
+	    undef $beta1;
+	    undef $beta2;
+	    undef $v_old;
+	    undef $v;
+	    undef $s_old;
+	    undef $s;
+	    undef $grad;
 	}
 
     } # elsif $w
