@@ -43,6 +43,15 @@ sub new {
        $self->{learn_rate} = undef; # 学習率を全体反映させる
        $self->{initdata} = undef; # layer_init時に指定された引数
        $self->{error_count} = {}; # 教育データのクラス毎にエラー回数
+       $self->{learn_input} = undef; #バッチ単位の学習用データ1次元
+
+       #  $self->{picup_cnt} = undef; # サンプルデータ数   $self->{initdata}->{batch}で登録される
+       #  $self->{batch} = undef; # バッチのデータ数
+       $self->{intre} = undef; # イテレーター数
+       #  $self->{epoc} = undef; #エポック数
+       $self->{all_learndata} = undef; # 学習用データの全てバッチ構成前
+       $self->{interater} = undef ; # 学習用データをバッチ単位で配列にしたもの ARRAYref
+                                # 標準化前の状態まで
 
        $self->{stat} = ""; # モジュールのステータス
                            # layer_inited : 初期化済  ->learn()　が動作する
@@ -93,6 +102,9 @@ sub layer_init {
         learn_rate => 0.34
         layer_act_func => [ 'ReLU' , 'ReLU' .... , 'Step' ],  # layer_memberと同じ項目数 layer毎の活性化関数を指定
         optimaizer => 'adam'.
+        picup_cnt => 10000,  # 学習データのサンプル数
+        batch => 50 ,   # バッチ学習のバッチあたりのデータ数
+    　　epoc => 200 ,  # エポック数
      }
 =cut
     if (!@_) {
@@ -112,6 +124,7 @@ sub layer_init {
 	if ( exists $self->{initdata}->{learn_rate} ) {
             $self->{learn_rate} = $self->{initdata}->{learn_rate};
 	}
+	
 
     } else {
         croak "initdata error!";
@@ -433,7 +446,149 @@ sub dump_structure {
     undef $waitsdump;
     undef $biasdump;
     undef $learn_rate_dump;
+} # dump_structure
+
+sub all_learndata {
+    my $self = shift;
+    # 学習用データをARRAYrefでセットするセッター
+    # データ構造
+    # $sample = { input => [] , class => [] }; これがARRAYで入っている1次元構造
+
+    if (@_) {
+        if ( $_[0] =~ /ARRAY/ ) {
+            $self->{all_learndata} = clone($_[0]);	
+        } else {
+        croak "all_learndata invarid data type";
+	}	
+    } else {
+        croak "no input error!";
+    }
 }
+
+sub prep_learndata {
+    my $self = shift;
+    # エポック単位のデータを抽出する
+    # picup_cnt数のサンプルを抽出して、
+    # バッチ数分のARREYrefをイテレーターに収納する
+
+    if (! defined $self->{all_learndata} ) {
+        croak "no all_learndata!";
+    }
+
+    srand();
+
+    undef $self->{intereter};  # 初期化
+    $self->{interater} = [];
+
+    my $batch = $self->{initdata}->{batch};
+    my $picup_cnt = $self->{initdata}->{picup_cnt};
+    my $intre = int( $picup_cnt / $batch );
+       $self->{intre} = $intre;
+    my $epoc = $self->{initdata}->{epoc};
+
+    my $learndata = [];
+
+    my @tmp = @{$self->{all_learndata}};
+    my $data_cnt = $#tmp;
+    undef @tmp;
+
+    for my $cnt ( 1 .. $picup_cnt ) {
+        my $choice = int(rand($data_cnt));
+        my $sample = clone($self->{all_learndata}->[$choice]);
+	# データ構成のチェック
+        if (( exists $sample->{input} ) && ( exists $sample->{class})){
+            push(@{$learndata} , $sample);
+	} else {
+            croak "invarid data structure!";
+	}
+
+    } #for cnt
+
+    #バッチに分割
+    for my $i ( 1 .. $intre ) {
+        my $tmp = [];
+        for my $j ( 1 .. $batch ) {
+            push(@{$tmp} , shift(@{$learndata}));
+        }
+        push(@{$self->{interater}} , $tmp);
+        undef $tmp;
+    }
+
+    undef $learndata;
+}
+
+sub get_interater {
+    my $self = shift;
+    # $self->{interater}のゲッター　標準化前のデータ
+    # prep_learndataを実行しないとundefか空配列が戻る
+    return $self->{interater};
+}
+
+sub input_layer {
+    my $self = shift;
+    #入力層を標準化する　0-1にまとめる
+    # {input}と{class}を変更する
+    # prep_learndataが済んでいること
+
+    if (! defined $self->{intre} ) {
+        croak "no action prep_learndata!!!";
+    }
+
+        my @list_input = (); #全てのinput
+        my @list_class = (); #全てのclass
+        for my $batch (@{$self->{interater}}) {
+            for my $sample (@{$batch}) {
+                push(@list_input , @{$sample->{input}});
+                push(@list_class , @{$sample->{class}});
+            }
+        }
+        my $min_input = List::Util::min(@list_input);
+        my $max_input = List::Util::max(@list_input);
+        my $min_class = List::Util::min(@list_class);
+        my $max_class = List::Util::max(@list_class);
+
+        undef @list_input;
+        undef @list_class;
+
+=pod
+        my $input_offset = undef;
+        my $input_width = undef;
+
+        if ($min_input < 0 ) {
+           $input_offset = abs($min_input);
+           $input_width = $max_input + $input_offset;
+        } else {
+           $input_offset = $min_input;
+           $input_width = $max_input - $min_input;
+        }
+
+        my $class_offset = undef;
+        my $class_width = undef;
+
+        if ($min_class < 0 ) {
+            $class_offset = abs($min_class);
+            $class_width = $max_class + $class_offset;
+        } else {
+            $class_offset = $min_class;
+            $class_width = $max_class - $min_class;
+        }
+=cut
+
+        #標準化   コメントしているのは正規化なのでとりあえず標準化で
+	my $interater = [];
+        for (my $i=0; $i <= $self->{intre} - 1; $i++) {
+            for (my $j=0 ; $j <= $self->{initdata}->{batch} - 1; $j++) {
+                    #  @{$interater->[$i]->[$j]->{input}} = map { ($_ + $input_offset ) / $input_width } @{$interater->[$i]->[$j]->{input}};
+                    #  @{$interater->[$i]->[$j]->{class}} = map { ($_ + $class_offset ) / $class_width } @{$interater->[$i]->[$j]->{class}};
+                @{$interater->[$i]->[$j]->{input}} = map { ($_ - $min_input ) / ($max_input - $min_input )} @{$self->{interater}->[$i]->[$j]->{input}};
+                @{$interater->[$i]->[$j]->{class}} = map { ($_ - $min_class ) / ($max_class - $min_class )} @{$self->{interater}->[$i]->[$j]->{class}};
+            }
+        }
+	# $self->{interater} は標準化前の状態
+	# $interaterは標準化後の状態
+
+        return $interater;
+} # input_layer
 
 sub learn {
     my $self = shift;
@@ -455,7 +610,7 @@ sub learn {
 
     if (@_) {
         if ($_[0] =~ /ARRAY/) {
-            $self->{learn_input} = $_[0];  # learn内のみ変数
+            $self->{learn_input} = $_[0];  # learn内のみ変数  バッチ単位の一次元データ
 	} else {
             croak "input data format not match!";
 	}
@@ -1203,6 +1358,7 @@ sub stat {
 sub input {
     my $self = shift;
     # dataがセットされるのみパーセプトロンに振り分けは行わない
+    # calc_Multiの前に行うもの
     if (@_) {
         if ( $_[0] =~ /ARRAY/ ) {
 
