@@ -4,10 +4,11 @@ package Perceptron;
 use Carp;
 use FindBin;
 use lib "$FindBin::Bin";
-use SPVM 'Util';
+#use SPVM 'Util';
 use Clone qw/clone/;
 use Scalar::Util qw/ weaken /;
 use feature 'say';
+
 
 srand(); # 個別に乱数表が用いられる
 
@@ -108,11 +109,11 @@ sub calc {
 
     my $sum = 0;
     # inputが270以下ならこのままで良い
-    #for (my $i=0; $i<=$#input ; $i++) {
-    #    $sum += ($input[$i] * $waits[$i]);
-    #} 
+    for (my $i=0; $i<=$#input ; $i++) {
+        $sum += ($input[$i] * $waits[$i]);
+    } 
 
-    $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+    #$sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
 
     undef @waits;
     undef @input;
@@ -127,6 +128,7 @@ sub calc {
 # 活性化関数を分離した書き方
 sub calcSum {
     my $self = shift;
+ # use PDL;
  
     my @waits = @{$self->{waits}};
     my @input = @{$self->{input}};
@@ -136,16 +138,30 @@ sub calcSum {
 	exit;
     }
 
-    my $sum = undef;
+    my $sum = 0;
 
-    $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+=pod  # 何故か->biasの引数をリファレンスだと判定してしまってエラーに成る Multilayerのoptimaizer処理の部分
+      #まったく意味がわらない
+      my $in = pdl($self->{input});
+      my $wa = pdl($self->{waits});
+      $sum = sum($in * $wa );
+=cut
+    # メモリーリークしてしまうのでどうしても無理
+    # $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+    
+#=pod
+       # inputが270以下ならこのままで良い パフォーマンスに差はない
+       for (my $i=0; $i<=$#input ; $i++) {
+           $sum += ($input[$i] * $waits[$i]);
+       } 
+#=cut
 
     undef @waits;
     undef @input;
 
     $self->{calc_sum} = $sum;  # biasを除く
 
-    return $self; # ->calcsum->ReLU() の為
+    return $self; # ->calcSum->ReLU() の為
 }
 
 sub ReLU {
@@ -167,7 +183,8 @@ sub None {
     my $self = shift;
     # biasの判定をスルー
 
-    my $tmp = $self->{calc_sum} + $self->{bias};
+    my $tmp = $self->{calc_sum};
+       $tmp += $self->{bias};
     # 上の式の記号を＋にするとwaitsの計算と同じなのだけど、学習率を何に設定しても終わらなくなる
     # しきい値としてbiasをにんしきしている場合はマイナスだが、入力に比例するように見える
     # 活性化関数を加味しないとすると、、、、
@@ -209,7 +226,7 @@ sub calcReLU {
 
     my $sum = 0;
 
-    $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+    # $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
 
     undef @waits;
     undef @input;
@@ -237,7 +254,8 @@ sub calcStep {
 
     my $sum = 0;
 
-    $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+    #  $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+    
 
     undef @waits;
     undef @input;
@@ -266,7 +284,7 @@ sub calcSigmoid {
 
     my $sum = 0;
 
-    $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
+    #  $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
 
     undef @waits;
     undef @input;
@@ -440,10 +458,11 @@ sub learn_simple {
        $self->{tmp} = [];
        @{$self->{tmp}} = @{$sample->{input}}; # $sampleはforのローカル変数なのでデリファレンスして実体化させる
        # forループのローカル変数にリファレンスを取って、そのまま参照すると、メモリーリークする
-       my $sum = SPVM::Util->onedinnersum($sample->{dummy} , $self->{waits});   
+       #   SPVMのメモリーリークが収まらない
+       #   my $sum = SPVM::Util->onedinnersum($sample->{dummy} , $self->{waits});   
        undef $self->{tmp}; # 使い終わったら削除する
 
-=pod
+#=pod
        # inputが270以下ならこのままで良い
        my $sum=0;
        my @input = @{$sample->{input}};
@@ -451,7 +470,7 @@ sub learn_simple {
        for (my $i=0; $i<=$#input ; $i++) {
            $sum += ($input[$i] * $waits[$i]);
        } 
-=cut
+#=cut
 
        my $result = 0;
        if ( $sum >= $self->{bias} ) {
@@ -494,8 +513,8 @@ sub learn_simple {
 
 	  &::Logging("delta: $delta sum: $sum theta: $theta") if $debug == 1;
 
-	  #my @waits = map {$_ += ($delta / $_) } @{$self->{waits}}; # 以下と同等
-	  my $SPVM_waits = SPVM::Util->map_learnsimple($delta , $self->{waits});
+	  my @waits = map {$_ += ($delta / $_) } @{$self->{waits}}; # 以下と同等
+	  #  my $SPVM_waits = SPVM::Util->map_learnsimple($delta , $self->{waits});
 	  my $tmp = $SPVM_waits->to_elems();
 	  my @waits = @{$tmp};
 	  undef $SPVM_waits;

@@ -196,8 +196,10 @@ sub plotdata {
     
 
     # learndata_plot.txtが存在すれば、一緒に表示する
-    if ( -f './learndata_plot.txt' ) {
-        say $gp "plot './learndata_plot.txt' , $func_strings";
+    #  if ( -f './learndata_plot.txt' ) {
+    #      say $gp "plot './learndata_plot.txt' , $func_strings";
+    if ( -f './onelayer_learndata.txt' ) {
+        say $gp "plot './onelayer_learndata.txt' , $func_strings";
     } else {
         say $gp "plot $func_strings";
     }

@@ -48,15 +48,15 @@ sub Logging {
 	    #  layer_member  => [ 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 2 , 0 ],
 	    #  layer_member  => [ 499 , 0 ],
 	    #  layer_member  => [ 2 , 2 , 0 ],
-	              layer_member  => [ 0 , 0 , 0 ],
+	              layer_member  => [ 1 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.000001,
+		      learn_rate => 0.0001,
            #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'None' ],
 	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
 	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
 	   #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
 	   #  layer_act_func => [ 'Sigmoid' ],
-	              layer_act_func => [ 'None' , 'Sigmoid' , 'None' ],
+	              layer_act_func => [ 'Sigmoid' , 'None' ],
 	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
 		      optimaizer => 'adam' ,
 	            };
@@ -77,6 +77,12 @@ sub Logging {
         for ( my $y = -10 ; $y <= 10 ; $y++  ) {
                $multilayer->input( [ $x , $y ] );
             my $out = $multilayer->calc_multi('learn');
+
+	    # デバッグのために$outを全て出力する
+                Logging("-----");
+            for my $layer ( @{$out}) {
+	        Logging("@{$layer}");    	
+            }
 	    say $fh " $x $y $out->[-1]->[0] ";
         }
     }

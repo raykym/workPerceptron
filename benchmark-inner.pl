@@ -47,7 +47,7 @@ use SPVM 'Util';
 
 =cut
 
-my $count = 9200000;
+my $count = 270;
 
 my $input = [];
 my $waits = [];

@@ -64,7 +64,7 @@ sub new {
        $self->{adam_params} = { 
 	                        mini_num => 1e-12,
 	                        moment_beta => 0.9,
-	                        rms_beta => 0.999,
+	                        rms_beta => 0.99,
 			      };
 
        $self->{datalog_name} = undef; # Datalog db file name
@@ -149,15 +149,16 @@ sub layer_init {
 	    $subs->{None} =  sub {  
 		    my ($self , $l , $n ) = @_;
 
+		    my $node_count = $self->{layer_member}->[$l] + 1; # 添字なので+1
+		       $node_count += $self->{layer_member}->[$l + 1 ] + 1 if defined $self->{layer_member}->[$l + 1];  # 後ろのノード数も加える 
 		    if ( $l == 0 ) {
-			# He初期化のためレイヤーのノード数を送る
 			#my $node_count = $self->{layer_member}->[$l] + 1;
-			#$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count);
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count , 'Xavier');
+			#$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
 		    } else {
 			    #my $node_count = $self->{layer_member}->[$l] + 1;
-			    #$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count);  # 一つ前の階層のノード数
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count , 'Xavier');  # 一つ前の階層のノード数
+			    #$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
 		    }
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
@@ -185,7 +186,8 @@ sub layer_init {
 		    my ($self , $l , $n ) = @_;
 		    # Xavier初期化
 
-		    my $node_count = $self->{layer_member}->[$l] + 1;
+		    my $node_count = $self->{layer_member}->[$l] + 1; # 添字なので+1
+		       $node_count += $self->{layer_member}->[$l + 1 ] + 1 if defined $self->{layer_member}->[$l + 1];  # 後ろのノード数も加える 
 		    if ( $l == 0 ) {
 			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count , 'Xavier' );  # 乱数初期化
 		    } else {
@@ -462,8 +464,10 @@ sub learn {
     my $debug = $self->{debug_flg}; # 0: off 1: on
     my $hand = 0; # 0: off 1: on  手動実行時にほしい表示 収束するか傾向を見る場合
 
-    $self->datalog_init(); 
+    #  $self->datalog_init();  # epoc毎に取得するため、外部に移動 ここに書くとバッチ単位で実行されるので
 
+
+=pod # 下記　datalog_snapshotに置き換え
     # 初期化データをダンプ形式で記録するハッシュなので構造が違う
     my $start_waits = $self->dump_structure('check');
     my $start_waits_strings = Dumper $start_waits;
@@ -472,6 +476,10 @@ sub learn {
     undef $start_waits_strings;
 
     $self->{datalog}->begin_work() if $self->{datalog_transaction} eq 'on';
+=cut
+
+    #$self->datalog_snapshot();
+
 
 =pod  # whileをコメントしたのでここもコメント ->layer_initに移動
     # チェック比較時に利用する配列
@@ -513,6 +521,12 @@ sub learn {
 
 	    $self->{tmp} = [];
 	    @{$self->{tmp}} = @{$sample->{input}}; # デリファレンスでリークを回避
+
+	    # None に前段があると出力が0になる件
+	    #	    &::Logging("sample: ") if $debug == 1;
+	    #print Dumper $sample if $debug == 1;
+	    #&::Logging("tmp: ") if $debug == 1;
+	    #print Dumper $self->{tmp} if $debug == 1;
 
             $self->input($self->{tmp});
 	    my $out = $self->calc_multi('learn');
@@ -572,6 +586,7 @@ sub learn {
 		#&::Logging("DEBUG: 誤差関数 $esum") ; # if $hand == 1;
 
                 # 現在のwaitsを取得する biasを除く
+		$self->{old_layerwaits} = undef;
 		$self->{old_layerwaits} = [];  # 3次元配列
 		for my $l ( 0 .. $self->{layer_count}) {
                     for my $node ( 0 .. $self->{layer_member}->[$l]) {
@@ -580,6 +595,7 @@ sub learn {
 		    }	
                 } 
 		# 現在のbiasを取得する
+		$self->{old_layer_bias} = undef;
 		$self->{old_layerbias} = [];  # 3次元配列
 		for my $l ( 0 .. $self->{layer_count}) {
                     for my $node ( 0 .. $self->{layer_member}->[$l]) {
@@ -593,6 +609,10 @@ sub learn {
 		&::Logging("DEBUG: old_layerbias") if $debug == 1;
 #		print Dumper $self->{old_layerbias} if $debug == 1;
 		
+		$self->{new_layerwaits} = undef;
+		$self->{new_layerbias} = undef; 
+		$self->{backprobacation} = undef;
+
 		$self->{new_layerwaits} = [];
 		$self->{new_layerbias} = [];  # logの為だけに取得 計算上は不要
 		$self->{backprobacation} = [];
@@ -817,7 +837,7 @@ sub learn {
                 }
 =cut
 
-		#undef $self->{new_layerwaits};
+		undef $self->{new_layerwaits};
 
 =pod # whileをコメントしたのでこの処理もコメントする  ->waitsChangeCheck()に移動
 		
@@ -849,7 +869,7 @@ sub learn {
                 }
 =cut
 
-		#	undef $self->{new_layerbias};
+		undef $self->{new_layerbias};
 
 =pod  # 値が変化しなくなるのでコメント
                 for my $l ( 0 .. $self->{layer_count} ) {
@@ -869,9 +889,10 @@ sub learn {
 
 #       } # while  # whileをコメント
 
+        undef $out;
     } # for sample 
 
-    $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
+    #    $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 
 =pod # 学習の度にチェックして完了を{stat}に記録するつもりで用意したが、これは使わない
     &::Logging("DEBUG: learn_finish data") if $debug == 1;
@@ -901,30 +922,48 @@ sub learn {
     }
 =cut
 
-
+    # optimaizer処理もここでは終わっている想定
     undef $self->{learn_input};
+    undef $self->{adam_waits};
+    undef $self->{adam_bias};
+    undef $self->{backprobacation};
+    undef $self->{old_layerwaits};
+    undef $self->{old_layerbias};
+    undef $self->{new_layerwaits};
+    undef $self->{new_layerbias};
 
     return $self->{stat};  # 完了ならlearndでなければlayer_initedが返る
 }
 
 sub loss {
-    my $self = shift;
+    my ( $self , $intre ) = @_;
     # ->clac_multi()の結果を受け取って誤差関数の結果を返す
+    # 直前のcalc_multiまたはlearnの直後を想定している
+    # バッチ単位、epoc単位のどちらか
 
-        if (! defined $self->{calc_multi_out}) {
-            &::Logging("INFO: calc_multi_out undef...");
+        if ((! defined $self->{calc_multi_out}) || (! defined $intre )) {
+            &::Logging("INFO: calc_multi_out or sample undef...");
 	    return;
 	}
 
-        my $out = $self->{calc_multi_out};
+	my $sample = $intre->[-1]; #バッチの一番最後の値
+
+	#my $out = $self->{calc_multi_out};
+        #一旦計算してから判定する	
+	$self->input($sample->{input});
+	$self->calc_multi('learn');
+
+
         #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2 
         my $esum = 0;
         for my $node ( 0 .. $self->{layer_member}->[-1]) {
-            $esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
+            $esum += ($self->{calc_multi_out}->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
 	}
 	$esum = $esum / 2;
 
 	undef $out;
+	undef $sample;
+	undef $intre;
 
 	return $esum;
 }
@@ -1298,10 +1337,26 @@ sub datalog_transaction {
     }
 }
 
+sub datalog_snapshot {
+    my $self = shift;
+    # dump_structureを利用してスナップショットを記録する
+    # 前提はdatalog_initがされていること
+
+    if ( ! defined $self->{datalog} ) {
+        croak "no setup Datalog!!!";
+    }
+
+    my $start_waits = $self->dump_structure('check');
+    my $start_waits_strings = Dumper $start_waits;
+    $self->{datalog}->addlog($start_waits_strings);
+    undef $start_waits;
+    undef $start_waits_strings;
+}
+
 sub DESTROY {
     my $self = shift;
     # exitで終了する場合に対処する
-    $self->{datalog}->commit();
+    $self->{datalog}->commit() if $self->{datalog_transaction} eq 'on';
 }
 
 1;

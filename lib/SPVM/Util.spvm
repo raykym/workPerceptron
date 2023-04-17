@@ -1,7 +1,7 @@
 class Util {
-    static method onedinnersum : float ($input : float[] , $waits : float[]) {
+     static method onedinnersum : double ($input : double[] , $waits : double[]) {
         # 2つの配列リファレンスを受け取って、内積を足し合わせて返す
-        my $total = 0;
+        my $total = 0d;  #リテラルでdを指定 付けないと整数に成るので少数が出力されない
         for ( my $i = 0; $i < @$input; $i++) {
             $total +=  ($input->[$i] * $waits->[$i]);
         }

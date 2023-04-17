@@ -56,13 +56,13 @@ sub Logging {
        # dumpしただけで、learnedになっていないので、
        $multilayer->stat('learned');
 
-    open ( my $fh , '>' , './onelayer_plotdata.txt');
+    open ( my $fh , '>' , './onelayer_plotdata_1.txt');
 
     #   print $fh Dumper $learndata;
 
     # x,yを与えて結果をまとめて出力をgnuplotでプロットさせる
 
-    my $point = 0;
+    #my $point = 0;
     for ( my $x = -10 ; $x <= 10 ; $x+=0.1  ) {
         for ( my $y = -10 ; $y <= 10 ; $y+=0.1  ) {
                $multilayer->input( [ $x , $y ] );
@@ -72,8 +72,8 @@ sub Logging {
 	    #  say "onelayer2:  @{$out->[2]} ";
 	    #say " $x $y $out->[1]->[0] ";
 	    # 
-	    # layer 1の結果を位置をずらして表示する
-	    say $fh " $x $y $out->[1]->[$point] ";
+	    #say $fh " $x $y $out->[1]->[$point] ";
+	    say $fh " $x $y $out->[-1]->[1] ";
 	    #$point++;
         }
     }
