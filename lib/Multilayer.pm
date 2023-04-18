@@ -3,7 +3,6 @@ package Multilayer;
 # Perceptronモジュールを集約して、
 # 誤差逆伝搬法（バックプロパゲーション）を試す
 # 学習には全体を見渡さないと出来ないので。。。
-# 最終的にはネットワーク経由でノードを分散させることも考える
 # ノード側PerceptronモジュールのcalcReLU,calcStepメソッドを呼び出して、計算し、
 # 活性化関数を分離した書き方に変更したので、->calcSum->ReLU()となる
 # 重み付けは計算して、waitsメソッドでノードに登録していく
@@ -47,10 +46,10 @@ sub new {
 
        #  $self->{picup_cnt} = undef; # サンプルデータ数   $self->{initdata}->{batch}で登録される
        #  $self->{batch} = undef; # バッチのデータ数
-       $self->{intre} = undef; # イテレーター数
+       $self->{itre} = undef; # イテレーター数
        #  $self->{epoc} = undef; #エポック数
        $self->{all_learndata} = undef; # 学習用データの全てバッチ構成前
-       $self->{interater} = undef ; # 学習用データをバッチ単位で配列にしたもの ARRAYref
+       $self->{iterater} = undef ; # 学習用データをバッチ単位で配列にしたもの ARRAYref
                                 # 標準化前の状態まで
 
        $self->{stat} = ""; # モジュールのステータス
@@ -477,13 +476,13 @@ sub prep_learndata {
 
     srand();
 
-    undef $self->{intereter};  # 初期化
-    $self->{interater} = [];
+    undef $self->{iterater};  # 初期化
+    $self->{iterater} = [];
 
     my $batch = $self->{initdata}->{batch};
     my $picup_cnt = $self->{initdata}->{picup_cnt};
-    my $intre = int( $picup_cnt / $batch );
-       $self->{intre} = $intre;
+    my $itre = int( $picup_cnt / $batch );
+       $self->{itre} = $itre;
     my $epoc = $self->{initdata}->{epoc};
 
     my $learndata = [];
@@ -505,38 +504,41 @@ sub prep_learndata {
     } #for cnt
 
     #バッチに分割
-    for my $i ( 1 .. $intre ) {
+    for my $i ( 1 .. $itre ) {
         my $tmp = [];
         for my $j ( 1 .. $batch ) {
             push(@{$tmp} , shift(@{$learndata}));
         }
-        push(@{$self->{interater}} , $tmp);
+        push(@{$self->{iterater}} , $tmp);
         undef $tmp;
     }
 
     undef $learndata;
+
+    return;
 }
 
-sub get_interater {
+sub get_iterater {
     my $self = shift;
-    # $self->{interater}のゲッター　標準化前のデータ
+    # $self->{iterater}のゲッター　標準化前のデータ
     # prep_learndataを実行しないとundefか空配列が戻る
-    return $self->{interater};
+    return $self->{iterater};
 }
 
 sub input_layer {
     my $self = shift;
+    # バッチ正規化と呼ばれるものCNNで利用される、回帰処理では無くても良さげ
     #入力層を標準化する　0-1にまとめる
     # {input}と{class}を変更する
     # prep_learndataが済んでいること
 
-    if (! defined $self->{intre} ) {
+    if (! defined $self->{itre} ) {
         croak "no action prep_learndata!!!";
     }
 
         my @list_input = (); #全てのinput
         my @list_class = (); #全てのclass
-        for my $batch (@{$self->{interater}}) {
+        for my $batch (@{$self->{iterater}}) {
             for my $sample (@{$batch}) {
                 push(@list_input , @{$sample->{input}});
                 push(@list_class , @{$sample->{class}});
@@ -575,19 +577,19 @@ sub input_layer {
 =cut
 
         #標準化   コメントしているのは正規化なのでとりあえず標準化で
-	my $interater = [];
-        for (my $i=0; $i <= $self->{intre} - 1; $i++) {
+	my $iterater = [];
+        for (my $i=0; $i <= $self->{itre} - 1; $i++) {
             for (my $j=0 ; $j <= $self->{initdata}->{batch} - 1; $j++) {
-                    #  @{$interater->[$i]->[$j]->{input}} = map { ($_ + $input_offset ) / $input_width } @{$interater->[$i]->[$j]->{input}};
-                    #  @{$interater->[$i]->[$j]->{class}} = map { ($_ + $class_offset ) / $class_width } @{$interater->[$i]->[$j]->{class}};
-                @{$interater->[$i]->[$j]->{input}} = map { ($_ - $min_input ) / ($max_input - $min_input )} @{$self->{interater}->[$i]->[$j]->{input}};
-                @{$interater->[$i]->[$j]->{class}} = map { ($_ - $min_class ) / ($max_class - $min_class )} @{$self->{interater}->[$i]->[$j]->{class}};
+                    #  @{$iterater->[$i]->[$j]->{input}} = map { ($_ + $input_offset ) / $input_width } @{$iterater->[$i]->[$j]->{input}};
+                    #  @{$iterater->[$i]->[$j]->{class}} = map { ($_ + $class_offset ) / $class_width } @{$iterater->[$i]->[$j]->{class}};
+                @{$iterater->[$i]->[$j]->{input}} = map { ($_ - $min_input ) / ($max_input - $min_input )} @{$self->{iterater}->[$i]->[$j]->{input}};
+                @{$iterater->[$i]->[$j]->{class}} = map { ($_ - $min_class ) / ($max_class - $min_class )} @{$self->{iterater}->[$i]->[$j]->{class}};
             }
         }
-	# $self->{interater} は標準化前の状態
-	# $interaterは標準化後の状態
+	# $self->{iterater} は標準化前の状態
+	# $iteraterは標準化後の状態
 
-        return $interater;
+        return $iterater;
 } # input_layer
 
 sub learn {
@@ -1091,34 +1093,51 @@ sub learn {
 }
 
 sub loss {
-    my ( $self , $intre ) = @_;
-    # ->clac_multi()の結果を受け取って誤差関数の結果を返す
-    # 直前のcalc_multiまたはlearnの直後を想定している
-    # バッチ単位、epoc単位のどちらか
+    my ( $self , $itre_b ) = @_;
+    # バッチ単位で全量計算し平均している
 
-        if ((! defined $self->{calc_multi_out}) || (! defined $intre )) {
+        if ((! defined $self->{calc_multi_out}) || (! defined $itre_b )) {
             &::Logging("INFO: calc_multi_out or sample undef...");
 	    return;
 	}
 
-	my $sample = $intre->[-1]; #バッチの一番最後の値
+	my @out_list = (); # calc_multiの結果配列
 
-	#my $out = $self->{calc_multi_out};
-        #一旦計算してから判定する	
-	$self->input($sample->{input});
-	$self->calc_multi('learn');
+	for my $sample (@{$itre_b}) {
+	    $self->input($sample->{input});
+	    my $tmp = $self->calc_multi('learn');
+	    push(@out_list , $tmp);
+        }
 
+        # out_listと$itre_bの大きさが違う場合
+	my @itreb = @{$itre_b};
+        if ( $#out_list != $#out_list ) {
+            my $tmp = "Data error!!!";
+	    return $tmp;
+        }
 
-        #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2 
-        my $esum = 0;
-        for my $node ( 0 .. $self->{layer_member}->[-1]) {
-            $esum += ($self->{calc_multi_out}->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
-	}
-	$esum = $esum / 2;
+	my @esum_llist = ();
+	for my $out (@out_list) {
+            my $sample = shift(@{$itre_b}); # $outと$sampleは同じ位置のはず
+            #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2 
+            my $esum = 0;
+            for my $node ( 0 .. $self->{layer_member}->[-1]) {
+                $esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
+	    }
+	    $esum = $esum / 2;
+            push(@esum_list , $esum);
+        }
+	my $esum_cnt = $#esum_list;
+        my $esum = List::Util::sum(@esum_list);
+           $esum = $esum / $esum_cnt; 
 
 	undef $out;
 	undef $sample;
-	undef $intre;
+	undef $itre;
+	undef @out_list;
+	undef @itreb;
+	undef @esum_list;
+	undef $esum_cnt;
 
 	return $esum;
 }

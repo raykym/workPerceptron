@@ -2,6 +2,7 @@
 #
 # ディープラーニングの表現力を検証する。
 # 
+# testwork用
 #
 use strict;
 use warnings;
@@ -19,7 +20,7 @@ use Devel::Size qw/ size total_size /;
 #use List::Util;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 
 #use Perceptron;
 use Multilayer;
@@ -42,24 +43,21 @@ sub Logging {
 
     #パラメータ設定
     my $structure = { 
-	    #  layer_member  => [ 1 , 1 , 1 , 1 , 1 , 1 , 1 , 1 , 1 , 0 ],
-	              layer_member  => [ 1 , 0 ],
+	              layer_member  => [ 3 , 3 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.01,
-           #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'None' ],
-	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
-	              layer_act_func => [ 'Sigmoid' , 'None' ],
-	   # layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
+		      learn_rate => 0.005,
+	   # layer_act_func => [ 'Sigmoid' , 'None' ],
+	              layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
 		      optimaizer => 'adam' ,
 		      picup_cnt => 10000,
-		      batch => 50,
-		      intre => undef ,
-		      epoc => 200,
+		      batch => 25,
+		      itre => undef ,
+		      epoc => 500,
 	            };
 
     my $picup_cnt = $structure->{picup_cnt}; # ピックアップデータ数
     my $batch = $structure->{batch};   # バッチ数
-    my $intre = int( $picup_cnt / $batch );  # インテレート数
+    my $itre = int( $picup_cnt / $batch );  # イテレート数
     my $epoc = $structure->{epoc};
 
     my $multilayer = Multilayer->new();
@@ -72,7 +70,7 @@ sub Logging {
 
 # 学習データ
     my $createdata = []; # 作成全データ
-    my $interater = []; # ２次元配列  バッチ毎に分割 
+    my $iterater = []; # ２次元配列  バッチ毎に分割 
 
     # データをきちんと作る必要がある。
     # x,yを入力してzが出力される関数」としてデータを用意する
@@ -110,8 +108,8 @@ sub Logging {
 
     undef $createdata; # メモリ開放
 
-      $multilayer->datalog_init();
-      $multilayer->datalog_snapshot(); # 学習前状態
+    #  $multilayer->datalog_init();
+    #  $multilayer->datalog_snapshot(); # 学習前状態
 
 
     for my $epoc_cnt ( 1 .. $epoc ) {  
@@ -119,15 +117,17 @@ sub Logging {
 
 	# epocの度にデータをサンプリングし直す
         $multilayer->prep_learndata();
-        # 標準化するケース
-        $interater = $multilayer->input_layer();
+        # 標準化する ReLUでは使ったほうが変化が出る
+	#$iterater = $multilayer->input_layer();
+	#バッチ正規化はウェイトの初期化と相克らしい 
+	$iterater = $multilayer->get_iterater();
 
         # バッチ毎に学習 
-        for (my $idx = 0 ; $idx <= $intre -1 ; $idx++){
+        for (my $idx = 0 ; $idx <= $itre -1 ; $idx++){
 
-           $multilayer->learn($interater->[$idx]);
+           $multilayer->learn($iterater->[$idx]);
 
-	   $loss = $multilayer->loss($interater->[$idx]); # sample->{class}が必要　
+	   $loss = $multilayer->loss($iterater->[$idx]); # sample->{class}が必要　
 	   Logging(" epoc: $epoc_cnt batch: $idx 誤差関数 $loss ");
 
 
@@ -138,7 +138,7 @@ sub Logging {
         }
 
         # epoc毎にsnapshotを取得する
-	    $multilayer->datalog_snapshot();
+	#    $multilayer->datalog_snapshot();
 
         if ( $loss <= 1e-20 ) {
 	   Logging(" Interupt... " );
@@ -160,22 +160,13 @@ sub Logging {
 
 
     open ( my $fh , '>' , './onelayer_plotdata.txt');
-
-    #   print $fh Dumper $learndata;
-
     # x,yを与えて結果をまとめて出力をgnuplotでプロットさせる
 
-    my $po = 0;
     for ( my $x = -10 ; $x <= 10 ; $x++  ) {
         for ( my $y = -10 ; $y <= 10 ; $y++  ) {
                $multilayer->input( [ $x , $y ] );
             my $out = $multilayer->calc_multi();
-	    #say $fh " $x $y $out->[0][$po] ";
-	    #say "onelayer1:  @{$out->[1]} ";
-	    #  say "onelayer2:  @{$out->[2]} ";
 	    say $fh " $x $y $out->[-1]->[0] ";
-
-	    #$po++;
         }
     }
 
