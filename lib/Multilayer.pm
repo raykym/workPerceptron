@@ -49,8 +49,9 @@ sub new {
        $self->{itre} = undef; # イテレーター数
        #  $self->{epoc} = undef; #エポック数
        $self->{all_learndata} = undef; # 学習用データの全てバッチ構成前
-       $self->{iterater} = undef ; # 学習用データをバッチ単位で配列にしたもの ARRAYref
+       $self->{iterater} = undef ; # 学習用データをバッチ単位で配列にしたもの ARRAYref 2次元
                                 # 標準化前の状態まで
+       $self->{test_itrater} = undef; #テストデータ 1次元 バッチ相当
 
        $self->{stat} = ""; # モジュールのステータス
                            # layer_inited : 初期化済  ->learn()　が動作する
@@ -161,16 +162,10 @@ sub layer_init {
 	    $subs->{None} =  sub {  
 		    my ($self , $l , $n ) = @_;
 
-		    my $node_count = $self->{layer_member}->[$l] + 1; # 添字なので+1
-		       $node_count += $self->{layer_member}->[$l + 1 ] + 1 if defined $self->{layer_member}->[$l + 1];  # 後ろのノード数も加える 
 		    if ( $l == 0 ) {
-			#my $node_count = $self->{layer_member}->[$l] + 1;
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count , 'Xavier');
-			#$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count});  # 乱数初期化
 		    } else {
-			    #my $node_count = $self->{layer_member}->[$l] + 1;
-			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count , 'Xavier');  # 一つ前の階層のノード数
-			    #$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1]);  #乱数初期化 
 		    }
 		    if ( defined $self->{learn_rate} ) {
 			# 学習率が指定されていれば変更する
@@ -474,10 +469,17 @@ sub prep_learndata {
         croak "no all_learndata!";
     }
 
+    use Math::GSL::RNG;
+    use Math::GSL::Randist qw/ gsl_ran_gaussian /;
+
+    #my $rng = Math::GSL::RNG->new();
+
     srand();
 
     undef $self->{iterater};  # 初期化
+    undef $self->{test_iterater};  # 初期化
     $self->{iterater} = [];
+    $self->{test_iterater} = [];
 
     my $batch = $self->{initdata}->{batch};
     my $picup_cnt = $self->{initdata}->{picup_cnt};
@@ -486,17 +488,55 @@ sub prep_learndata {
     my $epoc = $self->{initdata}->{epoc};
 
     my $learndata = [];
+    my $testdata = [];
 
-    my @tmp = @{$self->{all_learndata}};
-    my $data_cnt = $#tmp;
-    undef @tmp;
+    my @tmp_all = undef;
 
+=pod  # サンプルをランダムに選ぶが、最終的に全データを選択する カードストックのように使い切ったら追加する
     for my $cnt ( 1 .. $picup_cnt ) {
-        my $choice = int(rand($data_cnt));
-        my $sample = clone($self->{all_learndata}->[$choice]);
+           # ランダムに選ぶが、全量選択した後に入れ直す方式に変更
+           @tmp_all = @{$self->{all_learndata}} if (( $tmp_all[0] eq "" ) || ( ! defined $tmp_all[0] ));
+        my $data_cnt = $#tmp_all;
+
+	my $choice = int(rand($data_cnt + 1));
+	#my $sample = clone($self->{all_learndata}->[$choice]);
+        my $sample = $tmp_all[$choice];
+	splice( @tmp_all , $choice , 1);
+
+	   $data_cnt = $#tmp_all;
+
+	my $choice_test = int(rand($data_cnt + 1));
+	#my $sample_test = clone($self->{all_learndata}->[$choice_test]);
+        my $sample_test = $tmp_all[$choice_test];
+	splice( @tmp_all , $choice_test , 1);
+
 	# データ構成のチェック
-        if (( exists $sample->{input} ) && ( exists $sample->{class})){
+        if (( exists $sample->{input} ) && ( exists $sample->{class}) && ( exists $sample_test->{input}) && ( $sample_test->{class} )){
             push(@{$learndata} , $sample);
+            push(@{$testdata} , $sample_test);
+	} else {
+            croak "invarid data structure!";
+	}
+
+    } #for cnt
+=cut
+
+    # 毎回　全データをサンプル元に選ぶ
+    @tmp_all = @{$self->{all_learndata}};
+    my $data_cnt = $#tmp_all;
+    undef @tmp_all;
+    for my $cnt ( 1 .. $picup_cnt ) {
+
+	my $choice = int(rand($data_cnt + 1));
+	my $sample = clone($self->{all_learndata}->[$choice]);
+
+	my $choice_test = int(rand($data_cnt + 1));
+	my $sample_test = clone($self->{all_learndata}->[$choice_test]);
+
+	# データ構成のチェック
+        if (( exists $sample->{input} ) && ( exists $sample->{class}) && ( exists $sample_test->{input}) && ( $sample_test->{class} )){
+            push(@{$learndata} , $sample);
+            push(@{$testdata} , $sample_test);
 	} else {
             croak "invarid data structure!";
 	}
@@ -506,11 +546,15 @@ sub prep_learndata {
     #バッチに分割
     for my $i ( 1 .. $itre ) {
         my $tmp = [];
+        my $tmp_test = [];
         for my $j ( 1 .. $batch ) {
             push(@{$tmp} , shift(@{$learndata}));
+            push(@{$tmp_test} , shift(@{$testdata}));
         }
         push(@{$self->{iterater}} , $tmp);
+        push(@{$self->{test_iterater}} , $tmp_test);
         undef $tmp;
+        undef $tmp_test;
     }
 
     undef $learndata;
@@ -1092,8 +1136,22 @@ sub learn {
     return $self->{stat};  # 完了ならlearndでなければlayer_initedが返る
 }
 
+
+sub test_iterater {
+    my $self = shift;
+    # テストイテレーターのゲッター　prep_learndataが実行済で在ること
+
+    if ( ! defined $self->{test_iterater} )  {
+        croak "undef {test_iterater}!";
+    }
+
+    return $self->{test_iterater};
+}
+
 sub loss {
-    my ( $self , $itre_b ) = @_;
+	#my ($self , $itre_b ) = @_;
+    my $self = shift;
+    my $itre_b = clone($_[0]);
     # バッチ単位で全量計算し平均している
 
         if ((! defined $self->{calc_multi_out}) || (! defined $itre_b )) {

@@ -9,6 +9,10 @@ use Clone qw/clone/;
 use Scalar::Util qw/ weaken /;
 use feature 'say';
 
+# ガウシアン乱数の生成に必要
+use Math::GSL::RNG;
+use Math::GSL::Randist qw/gsl_ran_gaussian/;
+
 
 srand(); # 個別に乱数表が用いられる
 
@@ -309,6 +313,10 @@ sub waitsinit {
     # ・inputが先に決まっている場合、オンライン教師あり学習の想定で利用する
     # ・learn_simpleメソッドから呼ばれるケース
     # MultilayerではReLU関数なので、乱数をHe初期化に変更
+    #
+    my $rng = Math::GSL::RNG->new();
+    #my $g_rnd = gsl_ran_gaussian($rng->raw(), 0.5);
+    #$g_rnd = abs($g_rnd);
     
     my @waits = ();
     if (@_) {
@@ -324,29 +332,43 @@ sub waitsinit {
 
 	    for (my $i=0; $i<=$cnt; $i++) {
 	        if (( defined $node_count ) && ( $init_name eq 'He' )) {
-                    my $rand = rand( 2 / $node_count );
+		    #my $rand = rand( 2 / $node_count );
+		    my $rand = gsl_ran_gaussian($rng->raw(), sqrt(2/$node_count));
 	            push(@waits , $rand);
 
                 } elsif (( defined $node_count ) && ( $init_name eq 'Xavier')) {
-                    my $rand = rand( 1 / $node_count );
+		    #my $rand = rand( 1 / $node_count );
+		    my $rand = gsl_ran_gaussian($rng->raw(), 1/sqrt($node_count));
 	            push(@waits , $rand);
 
 	        } elsif ( ! defined $node_count ) {
-	            my $rand = rand(1);
+		    #my $rand = rand(1) * 0.01;
+		    my $rand = gsl_ran_gaussian($rng->raw(), 1);
+                       $rand = $rand * 0.01;
 	            push(@waits , $rand);
 	        }
 	    }
             $self->{waits} = \@waits;
 
-
+            # bias初期化
 	    if ( defined $node_count ) {
-		#my $rand = rand( 2 / $node_count );
-		#$self->bias($rand);
-                $self->bias(0);  #0で初期化
+		$self->bias(0);  #0で初期化
+=pod
+		# biasも初期化してみる
+                if ($init_name eq 'He' ) {
+		    my $rand = gsl_ran_gaussian($rng->raw(), sqrt(2/$node_count));
+                       $self->bias($rand);
+		} elsif ( $init_name eq 'Xavier' ) {
+		    my $rand = gsl_ran_gaussian($rng->raw(), 1/sqrt($node_count));
+                       $self->bias($rand);
+		} # if init_name
+=cut
 	    } else {
-		#my $rand = rand(1);
-		#$self->bias($rand);
-                $self->bias(0);  # 0で初期化
+		$self->bias(0);  # 0で初期化
+		#
+		#    my $rand = gsl_ran_gaussian($rng->raw(), 1);
+		#       $rand = $rand * 0.01;
+		#       $self->bias($rand);
             }
 
             return;

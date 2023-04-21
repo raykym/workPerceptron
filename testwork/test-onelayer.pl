@@ -43,16 +43,16 @@ sub Logging {
 
     #パラメータ設定
     my $structure = { 
-	              layer_member  => [ 3 , 3 , 0 ],
+	              layer_member  => [ 1 , 1 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.005,
+		      learn_rate => 0.001,
 	   # layer_act_func => [ 'Sigmoid' , 'None' ],
 	              layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
 		      optimaizer => 'adam' ,
 		      picup_cnt => 10000,
-		      batch => 25,
+		      batch => 50,
 		      itre => undef ,
-		      epoc => 500,
+		      epoc => 200,
 	            };
 
     my $picup_cnt = $structure->{picup_cnt}; # ピックアップデータ数
@@ -65,12 +65,18 @@ sub Logging {
      
     my $ts1 = total_size($multilayer);  
        Logging("1. multilayer  total_size: $ts1 ");
+       
+
+
+       #  $multilayer->dump_structure();
+       #  exit;
 
 
 
 # 学習データ
     my $createdata = []; # 作成全データ
     my $iterater = []; # ２次元配列  バッチ毎に分割 
+    my $test_iterater = undef; # テストデータ
 
     # データをきちんと作る必要がある。
     # x,yを入力してzが出力される関数」としてデータを用意する
@@ -114,13 +120,17 @@ sub Logging {
 
     for my $epoc_cnt ( 1 .. $epoc ) {  
 	my $loss = undef;
+	my $test_loss = undef;
 
 	# epocの度にデータをサンプリングし直す
         $multilayer->prep_learndata();
-        # 標準化する ReLUでは使ったほうが変化が出る
+
+        # バッチ正規化　標準化する ReLUでは使ったほうが変化が出る
 	#$iterater = $multilayer->input_layer();
-	#バッチ正規化はウェイトの初期化と相克らしい 
+	# バッチ正規化しない　Xavire初期化と相克らしい 
 	$iterater = $multilayer->get_iterater();
+
+	$test_iterater = $multilayer->test_iterater();
 
         # バッチ毎に学習 
         for (my $idx = 0 ; $idx <= $itre -1 ; $idx++){
@@ -128,7 +138,8 @@ sub Logging {
            $multilayer->learn($iterater->[$idx]);
 
 	   $loss = $multilayer->loss($iterater->[$idx]); # sample->{class}が必要　
-	   Logging(" epoc: $epoc_cnt batch: $idx 誤差関数 $loss ");
+	   $test_loss = $multilayer->loss($test_iterater->[$idx]);
+	   Logging(" epoc: $epoc_cnt batch: $idx 誤差関数 $loss : TEST: $test_loss");
 
 
            if ( $loss <= 1e-20 ) {

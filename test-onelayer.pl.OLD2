@@ -43,18 +43,18 @@ sub Logging {
     #パラメータ設定
     my $structure = { 
 	    #  layer_member  => [ 1 , 1 , 1 , 1 , 1 , 1 , 1 , 1 , 1 , 0 ],
-	              layer_member  => [ 499 , 0 ],
+	              layer_member  => [ 3 , 3 , 0 ],
 		      input_count => 1 ,
-		      learn_rate => 0.01,
+		      learn_rate => 0.001,
            #  layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'Sigmoid' , 'None' ],
 	   #  layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
-	              layer_act_func => [ 'Sigmoid' , 'None' ],
+	              layer_act_func => [ 'ReLU' , 'ReLU' , 'None' ],
 	   #layer_act_func => [ 'Sigmoid' , 'Sigmoid' , 'None' ],
 		      optimaizer => 'adam' ,
 		      picup_cnt => 10000,
 		      batch => 50,
 		      itre => undef ,
-		      epoc => 500,
+		      epoc => 200,
 	            };
 
     my $picup_cnt = $structure->{picup_cnt}; # ピックアップデータ数
@@ -110,8 +110,8 @@ sub Logging {
 
     undef $createdata; # メモリ開放
 
-      $multilayer->datalog_init();
-      $multilayer->datalog_snapshot(); # 学習前状態
+    #  $multilayer->datalog_init();
+    #  $multilayer->datalog_snapshot(); # 学習前状態
 
 
     for my $epoc_cnt ( 1 .. $epoc ) {  
@@ -138,7 +138,7 @@ sub Logging {
         }
 
         # epoc毎にsnapshotを取得する
-	    $multilayer->datalog_snapshot();
+	#    $multilayer->datalog_snapshot();
 
         if ( $loss <= 1e-20 ) {
 	   Logging(" Interupt... " );
