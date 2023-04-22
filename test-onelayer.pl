@@ -2,7 +2,6 @@
 #
 # ディープラーニングの表現力を検証する。
 # 
-# testwork用
 #
 use strict;
 use warnings;
@@ -20,7 +19,7 @@ use Devel::Size qw/ size total_size /;
 #use List::Util;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 
 #use Perceptron;
 use Multilayer;
@@ -43,10 +42,10 @@ sub Logging {
 
     #パラメータ設定
     my $structure = { 
-	    #layer_member  => [ 3 , 3 , 3 , 3 , 3 , 0 ],
-	    #layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
-	              layer_member  => [ 99 , 0 ],
-	              layer_act_func => [ 'Sigmoid' , 'None' ],
+	              layer_member  => [ 9 , 9 , 9 , 0 ],
+	              layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
+		      #layer_member  => [ 99 , 0 ],
+		      #layer_act_func => [ 'Sigmoid' , 'None' ],
 		      input_count => 1 ,
 		      learn_rate => 0.001,
 		      optimaizer => 'adam' ,
@@ -118,7 +117,6 @@ sub Logging {
     #  $multilayer->datalog_init();
     #  $multilayer->datalog_snapshot(); # 学習前状態
 
-
     for my $epoc_cnt ( 1 .. $epoc ) {  
 	my $loss = undef;
 	my $test_loss = undef;
@@ -127,10 +125,9 @@ sub Logging {
         $multilayer->prep_learndata();
 
         # バッチ正規化　標準化する ReLUでは使ったほうが変化が出る
-	#$iterater = $multilayer->input_layer();
+	$iterater = $multilayer->input_layer();
 	# バッチ正規化しない　
-	$iterater = $multilayer->get_iterater();
-
+	#$iterater = $multilayer->get_iterater();
 
 	$test_iterater = $multilayer->test_iterater();
 

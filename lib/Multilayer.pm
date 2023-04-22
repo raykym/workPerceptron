@@ -469,11 +469,6 @@ sub prep_learndata {
         croak "no all_learndata!";
     }
 
-    use Math::GSL::RNG;
-    use Math::GSL::Randist qw/ gsl_ran_gaussian /;
-
-    #my $rng = Math::GSL::RNG->new();
-
     srand();
 
     undef $self->{iterater};  # 初期化
@@ -571,7 +566,7 @@ sub get_iterater {
 
 sub input_layer {
     my $self = shift;
-    # バッチ正規化と呼ばれるものCNNで利用される、回帰処理では無くても良さげ
+    # バッチ正規化と呼ばれるものCNNで利用される、ReLUで利用、Sigmoidでは相克
     #入力層を標準化する　0-1にまとめる
     # {input}と{class}を変更する
     # prep_learndataが済んでいること
@@ -627,11 +622,14 @@ sub input_layer {
                     #  @{$iterater->[$i]->[$j]->{input}} = map { ($_ + $input_offset ) / $input_width } @{$iterater->[$i]->[$j]->{input}};
                     #  @{$iterater->[$i]->[$j]->{class}} = map { ($_ + $class_offset ) / $class_width } @{$iterater->[$i]->[$j]->{class}};
                 @{$iterater->[$i]->[$j]->{input}} = map { ($_ - $min_input ) / ($max_input - $min_input )} @{$self->{iterater}->[$i]->[$j]->{input}};
-                @{$iterater->[$i]->[$j]->{class}} = map { ($_ - $min_class ) / ($max_class - $min_class )} @{$self->{iterater}->[$i]->[$j]->{class}};
+		
+		#@{$iterater->[$i]->[$j]->{class}} = map { ($_ - $min_class ) / ($max_class - $min_class )} @{$self->{iterater}->[$i]->[$j]->{class}};
+		@{$iterater->[$i]->[$j]->{class}} = map { $_ } @{$self->{iterater}->[$i]->[$j]->{class}};
             }
         }
 	# $self->{iterater} は標準化前の状態
 	# $iteraterは標準化後の状態
+	# inputは標準化するが、classはそのまま
 
         return $iterater;
 } # input_layer
@@ -1175,12 +1173,12 @@ sub loss {
         }
 
 	my @esum_llist = ();
-	for my $out (@out_list) {
-            my $sample = shift(@{$itre_b}); # $outと$sampleは同じ位置のはず
+	for ( my $i=0; $i<=$#out_list; $i++){
+            my $sample = $itre_b->[$i]; 
             #2乗誤差関数  (Sigma(出力層 - sample_class)^2 )/2 
             my $esum = 0;
             for my $node ( 0 .. $self->{layer_member}->[-1]) {
-                $esum += ($out->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
+                $esum += ($out_list[$i]->[$self->{layer_count}]->[$node] - $sample->{class}->[$node] ) ** 2;
 	    }
 	    $esum = $esum / 2;
             push(@esum_list , $esum);

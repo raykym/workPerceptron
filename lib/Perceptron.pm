@@ -150,7 +150,7 @@ sub calcSum {
       my $wa = pdl($self->{waits});
       $sum = sum($in * $wa );
 =cut
-    # メモリーリークしてしまうのでどうしても無理
+    # メモリーリークしてしまうのでどうしても無理 ->構文チェックでcore dumpする。。。。
     # $sum = SPVM::Util->onedinnersum($self->{input} , $self->{waits});
     
 #=pod
@@ -315,8 +315,6 @@ sub waitsinit {
     # MultilayerではReLU関数なので、乱数をHe初期化に変更
     #
     my $rng = Math::GSL::RNG->new();
-    #my $g_rnd = gsl_ran_gaussian($rng->raw(), 0.5);
-    #$g_rnd = abs($g_rnd);
     
     my @waits = ();
     if (@_) {

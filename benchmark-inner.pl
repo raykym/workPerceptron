@@ -16,11 +16,11 @@ $|=1;
 
 use Benchmark;
 use PDL;
-use Clone;
+use Clone qw/ clone /;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use SPVM 'Util';
+#use SPVM 'Util';
 
 =pod
  perl for構文とPDLを比較した
@@ -47,7 +47,7 @@ use SPVM 'Util';
 
 =cut
 
-my $count = 270;
+my $count = 44444;
 
 my $input = [];
 my $waits = [];
@@ -95,28 +95,44 @@ Benchmark::cmpthese(-1, {
 
     },
 
-    'PDL' => sub {
-        my $i = pdl $input;
-        my $w = pdl $waits;
-        my $sum = sum($i * $w);
+#    'PDL' => sub {
+    #        my $i = pdl $input;
+    #        my $w = pdl $waits;
+    #        my $sum = sum($i * $w);
+    #
+    #        if ($bias > $sum) {
+    #            return 1;
+    #        } elsif ($sum < $bias) {
+    #            return 0;
+    #        }
+    #
+    #    },
 
-        if ($bias > $sum) {
-            return 1;
-        } elsif ($sum < $bias) {
-            return 0;
-        }
+#    'SPVM' => sub {
+#
+#        my $sum = SPVM::Util->onedinnersum( $input , $waits );
+#
+#        if ( $sum > $bias ){
+#            return 1;
+#        } elsif ( $sum < $bias ) {
+#            return 0;
+#        }
+#    },
 
-    },
-
-    'SPVM' => sub {
-
-        my $sum = SPVM::Util->onedinnersum( $input , $waits );
+    'perl foreach' => sub {
+	my $sum = 0;
+	my $w_tmp = clone \@waits; # copy
+	foreach my $i (@input) {
+	    my $w = shift @{$w_tmp};
+            $sum += ( $i * $w );
+	}
 
         if ( $sum > $bias ){
             return 1;
         } elsif ( $sum < $bias ) {
             return 0;
         }
+
     },
 
 	});
