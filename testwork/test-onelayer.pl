@@ -45,16 +45,18 @@ sub Logging {
     my $structure = { 
 	    #layer_member  => [ 1 , 1 , 1 , 1 , 1 , 0 ],
 	    #layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
-	              layer_member  => [ 499 , 0 ],
+	              layer_member  => [ 59 , 0 ],
 	              layer_act_func => [ 'Sigmoid' , 'None' ],
 		      input_count => 1 ,
 		      learn_rate => 0.001,
 		      optimaizer => 'adam' ,
-		      picup_cnt => 10000,
+		      picup_cnt => 40000,
 		      batch => 50,
 		      itre => undef ,
 		      epoc => 500,
 	            };
+
+    my $if = 0; # バッチ標準化 0: off 1: on
 
     my $picup_cnt = $structure->{picup_cnt}; # ピックアップデータ数
     my $batch = $structure->{batch};   # バッチ数
@@ -126,11 +128,13 @@ sub Logging {
 	# epocの度にデータをサンプリングし直す
         $multilayer->prep_learndata();
 
+    if ( $if == 1 ) {
         # バッチ正規化　標準化する ReLUでは使ったほうが変化が出る
-	#$iterater = $multilayer->input_layer();
+	$iterater = $multilayer->input_layer();
+    } elsif ( $if == 0 ) {
 	# バッチ正規化しない　
 	$iterater = $multilayer->get_iterater();
-
+    }
 
 	$test_iterater = $multilayer->test_iterater();
 

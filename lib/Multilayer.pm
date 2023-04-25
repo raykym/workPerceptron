@@ -1327,6 +1327,8 @@ sub optimaizer {
 			    undef $bias;
 			}
 
+			return;
+
     } elsif (( $self->{initdata}->{optimaizer} eq 'adam' ) &&( defined $w )) {
     # adamによるwaitsの調整 wait値を戻す
 	my $grad = $self->{backprobacation}->[$l]->[$n]->[$w]->{first} * $self->{backprobacation}->[$l]->[$n]->[$w]->{second} * $self->{backprobacation}->[$l]->[$n]->[$w]->{third};
