@@ -139,7 +139,8 @@ sub layer_init {
 	    # waitsの初期化
 
 	    # ローカルサブルーチンの定義 活性化関数毎に初期化方法を設定
-	    my $subs->{ReLU} =  sub {  
+	    my $subs = {};
+	    $subs->{ReLU} =  sub {  
 		    my ($self , $l , $n ) = @_;
 
 		    my $node_count = $self->{layer_member}->[$l] + 1;
@@ -173,6 +174,23 @@ sub layer_init {
 			$self->{learn_limit} = (1 / $self->{learn_rate}); # limitは学習率の逆数
 		    }
 	    }; # sub None
+
+	    $subs->{GeLU} =  sub {  
+		    my ($self , $l , $n ) = @_;
+
+		    my $node_count = $self->{layer_member}->[$l] + 1;
+		    if ( $l == 0 ) {
+			# He初期化のためレイヤーのノード数を送る
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{input_count} , $node_count , 'He' );
+		    } else {
+			$self->{tmp}->{nodes}->[$n]->waitsinit($self->{layer_member}->[$l-1] , $node_count , 'He' ); 
+		    }
+		    if ( defined $self->{learn_rate} ) {
+			# 学習率が指定されていれば変更する
+			$self->{tmp}->{nodes}->[$n]->learn_rate($self->{learn_rate});
+			$self->{learn_limit} = (1 / $self->{learn_rate}); # limitは学習率の逆数
+		    }
+	    }; # sub GeLU
 
 	    $subs->{Step} = sub {
 		    my ($self , $l , $n ) = @_;
@@ -227,7 +245,9 @@ sub layer_init {
         my $second = undef;
 	# 活性化関数がReLUのケース
 	my $bias = $self->{layer}->[$l]->[$n]->bias(); 
-	if ( $out->[$l]->[$n] >= $bias ) {
+	my $o_tmp = $self->{calc_multi_out}->[$l]->[$n];
+	#if ( $out->[$l]->[$n] >= $bias ) {
+	if ( $o_tmp + $bias > 0 ) {
 	    $second = 1; # 活性化関数 の微分 ReLU関数
 	} else {
 	    $second = 0;
@@ -250,6 +270,21 @@ sub layer_init {
 			}
 =cut
 
+	return $second;
+    }; # sub
+
+    $self->{act_funcs}->{GeLU} = sub {
+        my ($self , $l , $n ) = @_;
+        my $second = undef;
+	# 活性化関数がGeLUのケース
+	my $bias = $self->{layer}->[$l]->[$n]->bias(); 
+	my $o_tmp = $self->{calc_multi_out}->[$l]->[$n];
+	#if ( $out->[$l]->[$n] >= $bias ) {
+	if ( $o_tmp + $bias > 0 ) {
+	    $second = 1; # 活性化関数 の微分 ReLU関数
+	} else {
+	    $second = 0;
+	}
 	return $second;
     }; # sub
 
@@ -623,13 +658,12 @@ sub input_layer {
                     #  @{$iterater->[$i]->[$j]->{class}} = map { ($_ + $class_offset ) / $class_width } @{$iterater->[$i]->[$j]->{class}};
                 @{$iterater->[$i]->[$j]->{input}} = map { ($_ - $min_input ) / ($max_input - $min_input )} @{$self->{iterater}->[$i]->[$j]->{input}};
 		
-		#@{$iterater->[$i]->[$j]->{class}} = map { ($_ - $min_class ) / ($max_class - $min_class )} @{$self->{iterater}->[$i]->[$j]->{class}};
-		@{$iterater->[$i]->[$j]->{class}} = map { $_ } @{$self->{iterater}->[$i]->[$j]->{class}};
+		@{$iterater->[$i]->[$j]->{class}} = map { ($_ - $min_class ) / ($max_class - $min_class )} @{$self->{iterater}->[$i]->[$j]->{class}};
+		#@{$iterater->[$i]->[$j]->{class}} = map { $_ } @{$self->{iterater}->[$i]->[$j]->{class}};
             }
         }
 	# $self->{iterater} は標準化前の状態
 	# $iteraterは標準化後の状態
-	# inputは標準化するが、classはそのまま
 
         return $iterater;
 } # input_layer
@@ -1018,7 +1052,7 @@ sub learn {
 		&::Logging("DEBUG: loop $loop Change waits value  ------------------------") if $hand == 1;
 		&::Logging("DEBUG: loop $loop Retry! $sample_count ------------------------") if $debug == 1;
 
-#		$self->waitsChangeCheck($loop); # 思ったような動作にならないので封印
+		#		$self->waitsChangeCheck($loop); # 思ったような動作にならないので封印 ReLUでは部分的に0に成るので無意味だったりする
 
 =pod # whileをコメントしたのでここもコメント  ->waitsChangeCheck()に移動
                 # waitsの値が変化していないとループを抜ける仕組み
@@ -1230,7 +1264,7 @@ sub waitsChangeCheck {
         my $checkstring = join ("" , @{$check->[$l]}); 
 	my $fillstring = join ("", @{$self->{fillARRAY}->[$l]});
 
-    &::Logging("DEBUG: l: $l  checkstring: $checkstring ");
+#  &::Logging("DEBUG: l: $l  checkstring: $checkstring ");
 
         if ($checkstring eq $fillstring) {
 	    # レイヤー毎にチェックする

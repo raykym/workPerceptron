@@ -43,9 +43,9 @@ sub Logging {
 
     #パラメータ設定
     my $structure = { 
-	    #layer_member  => [ 3 , 3 , 3 , 3 , 3 , 0 ],
+	    #layer_member  => [ 1 , 1 , 1 , 1 , 1 , 0 ],
 	    #layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
-	              layer_member  => [ 99 , 0 ],
+	              layer_member  => [ 499 , 0 ],
 	              layer_act_func => [ 'Sigmoid' , 'None' ],
 		      input_count => 1 ,
 		      learn_rate => 0.001,

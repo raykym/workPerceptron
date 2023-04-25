@@ -13,6 +13,8 @@ use feature 'say';
 use Math::GSL::RNG;
 use Math::GSL::Randist qw/gsl_ran_gaussian/;
 
+use Math::Trig qw / tanh pi /;
+
 
 srand(); # 個別に乱数表が用いられる
 
@@ -194,6 +196,21 @@ sub None {
     # 活性化関数を加味しないとすると、、、、
 
     return $tmp;
+}
+
+sub GeLU {
+    my $self = shift;
+
+    my $tmp = $self->{calc_sum}; 
+       $tmp += $self->{bias};
+
+    my $gel = 0.5 * $tmp * ( 1 + tanh( sqrt(2/pi) * ( $tmp + 0.044715 * $tmp ** 3 )));
+
+    if ( $gel > 0 ){
+        return $gel;
+    } elsif ( $gel <= 0 ) {
+        return 0;
+    }
 }
 
 sub Step {

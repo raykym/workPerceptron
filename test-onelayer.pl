@@ -42,8 +42,8 @@ sub Logging {
 
     #パラメータ設定
     my $structure = { 
-	              layer_member  => [ 9 , 9 , 9 , 0 ],
-	              layer_act_func => [ 'ReLU' , 'ReLU' , 'ReLU' , 'None' ],
+	              layer_member  => [ 19 , 19 , 19 , 0 ],
+	              layer_act_func => [ 'GeLU' , 'GeLU' , 'GeLU' , 'None' ],
 		      #layer_member  => [ 99 , 0 ],
 		      #layer_act_func => [ 'Sigmoid' , 'None' ],
 		      input_count => 1 ,
@@ -52,7 +52,7 @@ sub Logging {
 		      picup_cnt => 10000,
 		      batch => 50,
 		      itre => undef ,
-		      epoc => 500,
+		      epoc => 100,
 	            };
 
     my $picup_cnt = $structure->{picup_cnt}; # ピックアップデータ数
