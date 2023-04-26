@@ -19,7 +19,7 @@ use Devel::Size qw/ size total_size /;
 #use List::Util;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 
 #use Perceptron;
 use Multilayer;
@@ -42,8 +42,8 @@ sub Logging {
 
     #パラメータ設定
     my $structure = { 
-	              layer_member  => [ 11 , 11 , 11 , 0 ],
-	              layer_act_func => [ 'GeLU' , 'GeLU' , 'GeLU' , 'None' ],
+	              layer_member  => [ 15 , 15 , 0 ],
+	              layer_act_func => [ 'GeLU' , 'GeLU' , 'None' ],
 		      #layer_member  => [ 99 , 0 ],
 		      #layer_act_func => [ 'Sigmoid' , 'None' ],
 		      input_count => 1 ,
@@ -52,7 +52,7 @@ sub Logging {
 		      picup_cnt => 10000,
 		      batch => 50,
 		      itre => undef ,
-		      epoc => 50,
+		      epoc => 500,
 	            };
 
     my $if = 0; # バッチ正規化　1: on 0: off
