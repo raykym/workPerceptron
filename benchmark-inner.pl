@@ -20,7 +20,7 @@ use Clone qw/ clone /;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
-#use SPVM 'Util';
+use SPVM 'Util';
 
 =pod
  perl for構文とPDLを比較した

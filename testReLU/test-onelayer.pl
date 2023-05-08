@@ -42,7 +42,7 @@ sub Logging {
 
     #パラメータ設定
     my $structure = { 
-	              layer_member  => [ 15 , 15 , 0 ],
+	              layer_member  => [ 31 , 31 , 0 ],
 	              layer_act_func => [ 'GeLU' , 'GeLU' , 'None' ],
 		      #layer_member  => [ 99 , 0 ],
 		      #layer_act_func => [ 'Sigmoid' , 'None' ],
@@ -52,7 +52,7 @@ sub Logging {
 		      picup_cnt => 10000,
 		      batch => 50,
 		      itre => undef ,
-		      epoc => 500,
+		      epoc => 100,
 	            };
 
     my $if = 0; # バッチ正規化　1: on 0: off
@@ -112,6 +112,7 @@ sub Logging {
         } # for y
     } # for x
 
+    # 全データを登録する
     $multilayer->all_learndata($createdata);
 
     undef $createdata; # メモリ開放

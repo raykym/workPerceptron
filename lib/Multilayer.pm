@@ -928,6 +928,7 @@ sub learn {
 =cut
 				    # 上を1行で置き換えた biasから派生して考え違いをしていた　waitsが含まれていない
 				    #my $tmp = $self->{old_layerwaits}->[$l]->[$n]->[$w] - ( $learn_rate * $first * $second * $third ); 
+				    # 上の行はoptimaizerに吸収された
 				    my $tmp = $self->optimaizer($l , $n , $w);
 
                                     push (@{$waits_delta} , $tmp); #調整したwaits
