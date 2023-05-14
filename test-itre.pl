@@ -15,7 +15,7 @@ use PDL::NiceSlice;
 use PDL::Core ':Internal';
 
 
-my $x = sequence(2,3,4,5,8);
+my $x = sequence(2,3,4,5,6,7,8,9);
 
 my $pdlitre = Pdlitre_idx->new($x);
 
@@ -35,7 +35,6 @@ while ($pdlitre->finished) {
 package Pdlitre_idx;
 
 # PDLを受けて、全体のインデックスをタプルで返す
-# 100万要素位になると8GBの4%程度使ってしまう
 # 
 use PDL;
 use PDL::NiceSlice;
@@ -48,8 +47,11 @@ sub new {
     my $self = {};
        $self->{pdl} = shift;  # pdlを想定
        $self->{pdl} = topdl($self->{pdl});
-       $self->{idx_list} = [];
-       $self->{idx_out} = undef;
+       #  $self->{idx_list} = []; # perl配列は作成しない
+       #$self->{idx_out} = []; # 出力用リファレンス
+       $self->{list_cnt} = undef; # 出力インデックスの添字最大値
+       $self->{idx_pdl} = undef; #作成したインデックスPDL
+       $self->{idx_point} = 0; # インデックスの現在のポイント
 
     bless $self , $class;
 
@@ -75,9 +77,13 @@ sub _init {
        $axis[$loop]->reshape($axis[$loop]->nelem); # 1次元にreshape
        $loop++;
     }
-    my $IDX_PDL = cat @axis;  #インデックスPDLを次元で結ぶ
+    my $IDX_PDL = cat @axis;  #インデックスPDLを1次元で結ぶ
+       $self->{list_cnt} = $PDL->nelem;
+       $self->{list_cnt}--; # 添字なので-1
+       $self->{idx_pdl} = $IDX_PDL;
+       $self->{idx_point} = 0;
 
-    # perl配列に置き直すとメモリを食いすぎるので、再検討
+=pod    # perl配列に置き直すとメモリを食いすぎるので、再検討
     my $list_cnt = $PDL->nelem; # 入力PDLの要素数
        $list_cnt--; # 添字なので-1
     my $cnt = 0;
@@ -90,21 +96,20 @@ sub _init {
     #
     # 最初の1個だけはセットしておく
     $self->{idx_out} = shift(@{$self->{idx_list}});
-
+=cut
 
     undef $IDX_PDL;
     undef @axis;
     undef @dims;
-    undef $list_cnt;
     undef $loop;
 }
 
 sub finished {
     my $self = shift;
 
-    if (@{$self->{idx_list}}) {
+    if ($self->{list_cnt} > $self->{idx_point} ) {
         return 1; # 偽 未了
-    } else {
+    } elsif ($self->{list_cnt} <= $self->{idx_point}) {
         return 0; # 真 完了
     }
 }
@@ -113,12 +118,15 @@ sub multi_index {
     my $self = shift;
     # itrenextを実行しないと更新されない
 
-    return @{$self->{idx_out}}; # 配列をそのまま返す
+    return list($self->{idx_pdl}->range($self->{idx_point}));
+
 }
 
 sub itrenext {
     my $self = shift;
+    # idx_pointを一つ増やす
 
-    $self->{idx_out} = shift(@{$self->{idx_list}});
+    # $self->{idx_out} = shift(@{$self->{idx_list}});
+    $self->{idx_point}++;
 }
 
