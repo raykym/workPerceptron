@@ -74,7 +74,18 @@ sub function_2 {
     return $X(0) ** 2 + $X(2) ** 2 ;
 }
 
+sub gradient_descent{
+    my ( $self , $func , $X , $lr , $step_num ) = @_;
 
+    $X = topdl($X);
+
+    for my $cnt ( 0 .. $step_num-1) {
+        my $GRAD = $self->numerical_gradient($func , $X);
+	$X -= $lr * $GRAD;
+    }
+    return $X;
+
+}
 
 
 
