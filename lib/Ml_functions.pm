@@ -9,6 +9,9 @@ use PDL;
 use PDL::Core ':Internal';
 use PDL::NiceSlice;
 
+use lib '/home/debian/perlwork/work/workPerceptron/lib';
+use Pdlitre;
+
 sub sigmoid{
     my $X = shift;
     $X = topdl($X);
@@ -105,7 +108,37 @@ sub softmax_loss {
     return cross_entropy_error($Y,$T);
 }
 
+sub numerical_gradient {
+    my ($func , $X ) = @_;
+    $X = topdl($X);
 
+    my $h = 0.0001;
+
+    my $grad = zeros($X);
+
+    my $it = Pdlitre->new($X);
+
+    while ($it->finished) {
+
+        my @idx = $it->multi_index;
+	my $TMP_VAL = $X(@idx)->sever;
+	   $X(@idx) += $h;
+        my $fxh1 = &{$func}($X);
+
+	   $X(@idx) .= $TMP_VAL;
+           $X(@idx) -= $h;
+	my $fxh2 = &{$func}($X);
+
+	   $grad(@idx) .= ($fxh1 - $fxh2) / (2*$h);
+
+	   $X(@idx) .= $TMP_VAL;
+
+	   $it->itrenext;
+    }
+
+    return $grad;
+
+}
 
 
 
