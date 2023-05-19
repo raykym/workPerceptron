@@ -886,12 +886,14 @@ sub learn {
                                 if ($l == $self->{layer_count}) {
 		                # 出力層の重み付け調整 
 			            $first = $out->[$l]->[$n] - $sample->{class}->[$n];  # 誤差関数の偏微分->今回の出力からクラスラベル差
+				    # 上記は参考にしたサイトの解説を元にしているが、現実は、
+				    # 損失関数の値をここに指定するケースがある。
 
 				    #  活性化関数に寄って変更される
 				    #  $second = $out->[$l]->[$n];   # 活性化関数の偏微分 ->出力値そのまま
 			            $second = $self->{act_funcs}->{$self->{layer_act_func}->[$l]}->( $self , $l , $n );
 
-				    # $first * $second が一般のgradとされている値
+				    # ($first * $second * $therd) が一般のgradとされている値
 
                                     $third = $out->[$l-1]->[$w];   #入力から得られた結果の偏微分 -> 前の層からの入力
 				    $self->{backprobacation}->[$l]->[$n]->[$w] = clone({ first => $first , second => $second , third => $third }); # 次の層の計算で利用される

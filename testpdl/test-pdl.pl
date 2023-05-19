@@ -1,6 +1,8 @@
 #!/usr/bin/env perl
 #
 # 多層パーセプトロンのPDLを利用した版
+# ゼロから作るDeepLearningを参考にしながら
+# perl PDLに置き換えていく
 
 use strict;
 use warnings;
@@ -13,6 +15,7 @@ binmode 'STDOUT' , ':utf8';
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use Multilayer_PDL;
+#use TwoLayerNet;
 
 use Tie::IxHash;
 use Time::HiRes qw / time /;
@@ -60,7 +63,7 @@ Logging $Multilayer->gradient_descent(\&function_2 , $X , $lr , $step_num);
 
 =cut
 
-
+=pod
 Logging("TwoLayerNet");
 
 my $net = TwoLayerNet->new(784 , 100 , 10 );
@@ -97,12 +100,64 @@ say $grads->{b1}->shape; # (100)
 say $grads->{W2}->shape; # (10,100)
 say $grads->{b2}->shape; # (10)
 
+=cut
+
+=pod
+Logging("Buy apple");
+Logging("(forward)");
+my $apple = 100;
+my $apple_num = 2;
+my $tax = 1.1;
 
 
+my $mul_apple_layer = MulLayer->new;
+my $mul_tax_layer = MulLayer->new;
 
+my $apple_price = $mul_apple_layer->forward($apple, $apple_num);
+my $price = $mul_tax_layer->forward($apple_price , $tax);
 
+say $price; # 220;
 
+Logging("(backward)");
 
+my $dprice = 1;
+my ($dapple_price , $dtax ) = $mul_tax_layer->backward($dprice);
+my ($dapple , $dapple_num ) = $mul_apple_layer->backward($dapple_price);
+
+say "$dapple | $dapple_num | $dtax "; # 2.2 110 200
+=cut
+
+=pod
+Logging("Buy apple orange");
+
+my $apple = 100;
+my $apple_num = 2;
+my $orange = 150;
+my $orange_num = 3;
+my $tax = 1.1;
+
+my $mul_apple_layer = MulLayer->new;
+my $mul_orange_layer = MulLayer->new;
+my $add_apple_orange_layer = AddLayer->new;
+my $mul_tax_layer = MulLayer->new;
+
+Logging("(forward)");
+my $apple_price = $mul_apple_layer->forward($apple , $apple_num);
+my $orange_price = $mul_orange_layer->forward($orange , $orange_num);
+my $all_price = $add_apple_orange_layer->forward($apple_price, $orange_price);
+my $price = $mul_tax_layer->forward($all_price , $tax);
+
+Logging("(backword)");
+my $dprice = 1;
+my ($dall_price , $dtax ) = $mul_tax_layer->backward($dprice);
+my ($dapple_price , $dorange_price) = $add_apple_orange_layer->backward($dall_price);
+my ($dorange , $dorange_num) = $mul_orange_layer->backward($dorange_price);
+my ($dapple , $dapple_num) = $mul_apple_layer->backward($dapple_price);
+
+say $price;
+say "$dapple_num | $dapple | $dorange | $dorange_num | $dtax ";
+
+=cut
 
 
 
@@ -140,7 +195,7 @@ sub new {
     my ( $input_size , $hidden_size , $output_size , $weight_init_std ) = @_;
        $weight_init_std = 0.01 if ! defined $weight_init_std;
 
-    my $rng = PDL::GSL::RNG->new('mt19937');
+    my $rng = PDL::GSL::RNG->new('mt19937_1999');
        $rng->set_seed(time());
 
     my $self = {};
@@ -228,5 +283,111 @@ sub numerical_gradient {
 
 
 
+
+
+
+package MulLayer;
+
+use utf8;
+binmode 'STDOUT' , ':utf8';
+
+use PDL;
+use PDL::Core ':Internal';
+use PDL::NiceSlice;
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Multilayer_PDL;
+use Ml_functions;
+
+use Tie::IxHash;
+use Time::HiRes qw / time /;
+
+
+
+
+sub new {
+    my $proto = shift;
+    my $class = ref $proto || $proto;
+
+    my $self = {};
+       $self->{X} = undef;
+       $self->{Y} = undef;
+
+    bless $self , $class;
+
+
+    return $self;
+
+}
+
+sub forward {
+    my ($self , $X , $Y) = @_;
+
+    $self->{X} = $X;
+    $self->{Y} = $Y;
+
+    my $OUT = $X * $Y;
+
+    return $OUT;
+
+}
+
+sub backward {
+    my ($self , $dout ) = @_;
+
+    my $DX = $dout * $self->{Y}; # X,Yをひっくり返す
+    my $DY = $dout * $self->{X};
+
+    return ( $DX , $DY );
+
+}
+
+
+
+package AddLayer;
+
+use utf8;
+binmode 'STDOUT' , ':utf8';
+
+use PDL;
+use PDL::Core ':Internal';
+use PDL::NiceSlice;
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Multilayer_PDL;
+use Ml_functions;
+
+use Tie::IxHash;
+use Time::HiRes qw / time /;
+
+sub new {
+    my $proto = shift;
+    my $class = ref $proto || $proto;
+
+    my $self = {};
+
+    bless $self , $class;
+
+    return $self;
+}
+
+sub forward {
+    my ( $self , $X , $Y ) = @_;
+
+    my $OUT = $X + $Y;
+
+    return $OUT;
+}
+
+sub backward {
+    my ( $self , $dout ) = @_;
+
+    my $DX = $dout * 1;
+    my $DY = $dout * 1;
+
+    return ($DX , $DY);
+}
 
 

@@ -37,6 +37,19 @@ my $hash_ref = \%hash_seq;
        say $hash_seq{$key};
    }
 
+   say "revers";
+   # 3-> 11 -> 2 -> 4 昇順 を逆順にする。
+   my @keylist;
+   for my $key ( keys %hash_seq ) {
+       push(@keylist , $key);
+   }
+
+   while ( my $key = pop @keylist ) {
+	   #say $hash_seq{$key}; 
+      say $hash_ref->{$key}; 
+   }
+
+
 #my $hash_seq = Tie::IxHash->new( one => 1 , two => 2 , three => 3);
 #while ( my $key = $hash_seq->Keys() ) {
 #    say $hash_seq->{$key};
