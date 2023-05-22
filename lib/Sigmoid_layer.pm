@@ -38,7 +38,7 @@ sub backward {
     my ( $self , $DOUT ) = @_;
     $DOUT = topdl($DOUT); 
 
-    my $DX .= $DOUT * ( 1.0 - $self->{out} ) * $self->{out};;
+    my $DX = $DOUT * ( 1.0 - $self->{out} ) * $self->{out};;
 
     return $DX;
 }

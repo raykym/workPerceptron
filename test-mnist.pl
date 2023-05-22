@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 #
+# pngファイルを読み込む事を想定したが、
+# PDL::IO::GDがセグメンテーションフォルト起こすのでパス
 
 use strict;
 use warnings;

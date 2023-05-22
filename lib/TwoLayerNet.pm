@@ -1,5 +1,7 @@
 package TwoLayerNet;
 
+use v5.32;
+
 # numPyとPDLの仕様の違い (行、列）と（列、行）については 入力前に転置する、waitsは転置しておく
 # 設定項目は基本的にpythonの記述に準じて、後に修正を行う方針
 
@@ -49,7 +51,7 @@ sub new {
        $self->{layers}->{Affine1} = Affine_layer->new($self->{params}->{W1} , $self->{params}->{b1});
        $self->{layers}->{Relu1} = Relu_layer->new();
        $self->{layers}->{Affine2} = Affine_layer->new($self->{params}->{W2} , $self->{params}->{b2});
-       $self->{lastLayer} = SoftmaxWithLoss->new();
+       $self->{lastLayer} = SoftmaxWithLoss_layer->new();
 
      bless $self , $class;
 
@@ -60,32 +62,40 @@ sub predict {
     my $self = shift;
     my $X = shift;
     $X = topdl($X);
+=pod
+    say "DEBUG: predict: X";
+    say $X->shape;
+    say "";
+=cut
 
     for my $key ( keys %{$self->{layers}} ) {
-       $X .= $self->{layers}->{$key}->forward($X); 
+	    #say "DEBUG: predict: key: $key";
+       $X = $self->{layers}->{$key}->forward($X); 
     }
     return $X;
 }
 
 sub loss {
     my ($self , $X , $T ) = @_;
-
+=pod
+    say "DEBUG: loss: T";
+    say $T->shape;
+    say "";
+=cut
     my $Y = $self->predict($X);
 
-    return $self->{layers}->{latLayer}->forward($Y , $T);
+    return $self->{lastLayer}->forward($Y , $T);
 }
 
 sub accuracy {
     my ( $self , $X , $T ) = @_;
 
     my $Y = $self->predict($X);
-    $Y .= Ml_functions::argmax($Y);
-
-    $T .= Ml_functions::argmax($T) if ( $T->ndims != 1 ) ;
-
+    $Y = Ml_functions::argmax($Y);
+    $T = Ml_functions::argmax($T) if ( $T->ndims != 1 ) ;
     #my $accuracy = sum($Y == $T ) / float($X->shape(0)); # 直訳
     my @shape = $X->dims; #(列、行) 行を指定する
-    my $accuracy = sum($Y == $T ) / float($shape[1]);  # $X->ndimsで良いのかも？
+    my $accuracy = sum($Y == $T ) / float($shape[1]);  
 
     undef @shape;
     undef $Y;
@@ -96,26 +106,35 @@ sub accuracy {
 
 sub numerical_gradient {
     my ( $self , $X , $T ) = @_;
+=pod
+    say "DEBUG: numerical_gradient: X";
+    say $X->shape;
+    say "DEBUG: numerical_gradient: T";
+    say $T->shape;
+    say "";
+=cut
 
     my $loss_W = sub {
-                     my ( $x , $T ) = @_;
-		     $x = topdl($x);
-
-                     $x = $x->transpose; #何故が転置が解除されるので
-                     state $X = $x; # 初期値で固定する
-                     
+	    #  my ( $X , $T ) = @_; # 無記名関数をカプセル化しない事
+	    #   $X = topdl($X);
+=pod
+		     say "DEBUG: loss_W :X";
+		     say $X->shape;
+		     say "DEBUG: loss_W: T";
+		     say $T->shape;
+		     say "";
+=cut
 		     $self->loss($X,$T);
 
                      };
 
     my $grads = {};
        $grads->{W1} = Ml_functions::numerical_gradient($loss_W , $self->{params}->{W1} );
-       # 2回めのときに、$loss_Wの引数に{b1}が入ってしまうのでstateで固定
        $grads->{b1} = Ml_functions::numerical_gradient($loss_W , $self->{params}->{b1} );
        $grads->{W2} = Ml_functions::numerical_gradient($loss_W , $self->{params}->{W2} );
        $grads->{b2} = Ml_functions::numerical_gradient($loss_W , $self->{params}->{b2} );
 
-    undef $loss_W; # 呼び出し毎にstateをリセットする
+    undef $loss_W; 
 
     return $grads;
 
@@ -133,6 +152,9 @@ sub gradient {
            push(@keylist , $key);
        }
        while ( my $key = pop @keylist ) {
+	       #  say "gradient: dout: while in $key";
+	       #  say $dout->shape;
+
            $dout = $self->{layers}->{$key}->backward($dout);
        }
        undef @keylist; 

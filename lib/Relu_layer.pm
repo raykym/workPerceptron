@@ -40,7 +40,7 @@ sub maskfilter {
     my $Z = zeros($self->{mask});
     my $FILTER = $Z == $self->{mask}; # maskの0,1がはんてんしたFILTER
 
-    my $OUT .= $X * $FILTER; # maskの位置が0に成る
+    my $OUT = $X * $FILTER; # maskの位置が0に成る
 
     undef $Z;
     undef $FILTER;
@@ -52,7 +52,7 @@ sub forward {
     my ($self , $X ) = @_;
     $X = topdl($X);
 
-    $self->{mask} .= $self->relumask($X);
+    $self->{mask} = $self->relumask($X);
 
     my $OUT = $X->copy;
 
@@ -60,7 +60,7 @@ sub forward {
     # PDLだと機能が無いのでmaskfilterを作成
     # relumaskに加えると論理がわかりにくく成るのであえて別にする
 
-    $OUT .= $self->maskfilter($OUT);
+    $OUT = $self->maskfilter($OUT);
 
     return $OUT;
 }
@@ -69,7 +69,7 @@ sub backward {
     my ( $self , $DOUT ) = @_;
     $DOUT = topdl($DOUT); 
 
-    my $DX .= $self->maskfilter($DOUT);
+    my $DX = $self->maskfilter($DOUT);
 
     return $DX;
 }

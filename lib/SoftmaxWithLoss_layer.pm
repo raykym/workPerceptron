@@ -5,6 +5,8 @@ package SoftmaxWithLoss_layer;
 use utf8;
 binmode 'STDOUT' , ':utf8';
 
+use feature 'say';
+
 use PDL;
 use PDL::Core ':Internal';
 use PDL::NiceSlice;
@@ -37,17 +39,24 @@ sub forward {
     $self->{y} = Ml_functions::softmax($X);
     $self->{loss} = Ml_functions::cross_entropy_error($self->{y} , $self->{t});
 
+    #  say "DEBUG: sofrmax: forward";
+    #  say $self->{t};
+    #  say "";
+
     return $self->{loss};
 }
 
 sub backward {
     my ( $self , $DOUT ) = @_;
-    $DOUT = topdl($DOUT); 
+    #$DOUT = topdl($DOUT); 
     $DOUT = 1;
     my @dims = $self->{t}->dims;
+    #  say "softmax backward";
+    #  say @dims;
+    #  say "";
     my $batch_size = $dims[1]; # PDLでは列を指定する必要があるはず、backwardの転置は未確認
 
-    my $DX .= ( $self->{y} - $self->{t} ) / $batch_size;
+    my $DX = ( $self->{y} - $self->{t} ) / $batch_size;
 
     return $DX;
 }

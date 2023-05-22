@@ -11,6 +11,8 @@ use PDL;
 use PDL::Core ':Internal';
 use PDL::NiceSlice;
 
+use feature 'say';;
+
 use lib '/home/debian/perlwork/work/workPerceptron/lib';
 use Pdlitre;
 
@@ -76,17 +78,19 @@ sub cross_entropy_error {
     #入力行列は(列、行)形式を想定 転置済で入力される事を前提
     my ( $Y , $T ) = @_;
     $Y = topdl($Y);
+    $Y_tmp = $Y->copy;
     $T = topdl($T);
+    $T_tmp = $T->copy;
 
     # PDLの場合この変換処理は不要なのでは？　カラムリストに変換しているから
     #$Y->reshape(1 , $Y->nelem); # 直訳の書式
-    $Y->reshape($Y->nelem); # 実際にやりたいことはこちら PDLはカラム配列が基本
+    $Y_tmp->reshape($Y_tmp->nelem); # 実際にやりたいことはこちら PDLはカラム配列が基本
     #$T->reshape(1 , $T->nelem);
-    $T->reshape($T->nelem);
+    $T_tmp->reshape($T_tmp->nelem);
 
-    if ( $Y->nelem == $T->nelem ) {
+    if ( $Y_tmp->nelem == $T_tmp->nelem ) {
 
-        $T .= &argmax($T);
+        $T_tmp = &argmax($T_tmp);
 =pod
 	# np.argmaxの置き換え
         my $f = ones($T);
@@ -96,8 +100,8 @@ sub cross_entropy_error {
 =cut
     }
 
-    my $batch_size = $Y->shape(); #sample: [ 100 ]
-    return -sum(log($Y + 0.00000001) * $T) / $batch_size; 
+    my $batch_size = $Y_tmp->shape(); #sample: [ 100 ]
+    return -sum(log($Y_tmp + 0.00000001) * $T_tmp) / $batch_size; 
 
 }
 
@@ -106,13 +110,18 @@ sub softmax_loss {
     $X = topdl($X);
     $T = topdl($T);
 
-    $Y = softmax($X);
+    my $Y = softmax($X);
     return cross_entropy_error($Y,$T);
 }
 
 sub numerical_gradient {
     my ($func , $X ) = @_;
     $X = topdl($X);
+=pod
+    say "DEBUG: ML_numerical_gradient: X";
+    say $X->shape;
+    say "";
+=cut
 
     my $h = 0.0001;
 

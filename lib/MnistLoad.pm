@@ -10,6 +10,7 @@ package MnistLoad;
 # フラットは行う
 #
 # ホットワンへの変換はchg_hotone関数
+# 標準化 normalize関数
 
 use feature 'say';
 
@@ -117,11 +118,11 @@ sub mnistload {
           die "Invalid magic number expected " . 0x00000801 . "actual $magic_number";
         }
 
-	undef $label_buffer;
-
         # ラベル数
         read($mnist_labels_fh, $labels_buffer, 4);
         my $labels_count = unpack('N1', $labels_buffer);
+
+	undef $labels_buffer;
 
         my @label_x; #perl配列にPDLが入る
         my $offset = 8;
@@ -154,7 +155,7 @@ sub mnistload {
 sub chg_hotone {
     my $X = shift;
     $X = topdl($X);
-    # 2次元配列をhot-oneラベルに変換する
+    # 1次元配列をhot-oneラベルに変換する
     # MNIST用
     my $T = zeros($X->nelem , 10);
     my $end = $X->nelem -1;

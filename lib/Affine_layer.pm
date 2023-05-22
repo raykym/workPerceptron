@@ -9,6 +9,8 @@ use PDL;
 use PDL::Core ':Internal';
 use PDL::NiceSlice;
 
+use feature 'say';
+
 
 sub new {
     my $proto = shift;
@@ -17,7 +19,7 @@ sub new {
     my $self = {};
        $self->{W} = shift;
        $self->{W} = topdl($self->{W});
-       $self->{W} = $self->{W}->transpose; # PDLの為
+       #$self->{W} = $self->{W}->transpose; # PDLの為 -> TwoLayerNetで呼び出されるので転置済み
        $self->{b} = shift;
        $self->{b} = topdl($self->{b});
 
@@ -36,7 +38,15 @@ sub forward {
     $X = topdl($X);
 
     $self->{X} = $X;
-
+=pod
+    say "DEBUG: Affine forward X";
+    say $X->shape;
+    say "DEBUG: Affine forward self->{w}";
+    say $self->{W}->shape();
+    say "DEBUG: Affine forward self->{b}";
+    say $self->{b}->shape();
+    say "";
+=cut
     my $OUT = $X x $self->{W} + $self->{b};
 
     return $OUT;
@@ -44,15 +54,38 @@ sub forward {
 
 sub backward {
     my ( $self , $DOUT ) = @_;
-    $DOUT = topdl($DOUT); 
-    # 逆伝搬の場合転置が再度入るかもしれない!!!!!!
+    #$DOUT = topdl($DOUT); 
+    #  say "DEBUG: Affine: backward DOUT";
+    #  say $DOUT->shape;
 
     $self->{W} = $self->{W}->transpose;
-    my $DX = $DOUT * $self->{W};
+    #  say "DEBUG: Affine: backward W_t";
+    #  say $self->{W}->shape;
+    my $DX = $DOUT x $self->{W};
 
     $self->{X} = $self->{X}->transpose;
+    #  say "DEBUG: Affine: backward X_t";
+    #  say $self->{X}->shape;
     $self->{dW} = $self->{X} x $DOUT;
-    $self->{db} = sum($DOUT);
+
+    #  say "Affine backward: DOUT";
+    #  say $DOUT->shape;
+    #  say "";
+
+    #行方向にsum axis=0
+    #$self->{db} = sum($DOUT);
+    my $DOUT_tmp = $DOUT->copy;
+       $DOUT_tmp = $DOUT_tmp->xchg(0,1); # 列にノードを持ってくる
+    $DOUT_tmp = sumover($DOUT_tmp); # 行をsumする
+    $self->{db} = $DOUT_tmp;
+
+    #  say "Affine: backward:";
+    #  say $self->{db}->shape;
+
+    undef $DOUT_tmp;
+    # 転置を戻す
+    $self->{W} = $self->{W}->transpose;
+    $self->{X} = $self->{X}->transpose;
 
     return $DX;
 }

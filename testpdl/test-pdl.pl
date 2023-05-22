@@ -63,7 +63,7 @@ Logging $Multilayer->gradient_descent(\&function_2 , $X , $lr , $step_num);
 
 =cut
 
-=pod
+#=pod
 Logging("TwoLayerNet");
 
 my $net = TwoLayerNet->new(784 , 100 , 10 );
@@ -100,7 +100,7 @@ say $grads->{b1}->shape; # (100)
 say $grads->{W2}->shape; # (10,100)
 say $grads->{b2}->shape; # (10)
 
-=cut
+#=cut
 
 =pod
 Logging("Buy apple");
@@ -215,7 +215,11 @@ sub predict {
     my $self = shift;
     my $X = shift;
     $X = topdl($X);
-
+=pod
+    say "DEBUG: predict: X";
+    say $X->shape;
+    say "";
+=cut
     my ($W1 , $W2) = ( $self->{params}->{W1} , $self->{params}->{W2} );
     my ($b1 , $b2) = ( $self->{params}->{b1} , $self->{params}->{b2} );
 
@@ -229,6 +233,13 @@ sub predict {
 
 sub loss {
     my ($self , $X , $T ) = @_;
+=pod
+    say "DEBUG: loss: X";
+    say $X->shape;
+    say "DEBUG: loss: T";
+    say $T->shape;
+    say "";
+=cut
 
     my $Y = $self->predict($X);
 
@@ -257,12 +268,27 @@ sub accuracy {
 sub numerical_gradient {
     my ( $self , $X , $T ) = @_;
 
-    my $loss_W = sub {
-                     my ( $x , $T ) = @_;
-		     $x = topdl($x);
+    say "DEBUG: numerical_gradient: x";
+    say $X->shape;
+    say "DEBUG: numerical_gradient: T";
+    say $T->shape;
+    say "";
 
-                     $x = $x->transpose; #何故が転置が解除されるので
-                     state $X = $x; # 初期値で固定する
+    my $loss_W = sub {
+	    # 動作がおかしいのでサブルーチンの引数を取らないことにする
+	    #my ( $x , $T ) = @_;
+	    #$x = topdl($x);
+
+=pod
+                     say "DEBUG: loss_W: X";
+		     say $X->shape;
+		     say "DEBUG: loss_W: T";
+		     say $T->shape;
+		     say "";
+=cut
+		     # ここも関数のカプセル化を無視すればなくても良いはず
+		     #$x = $x->transpose; #何故が転置が解除されるので
+		     #state $X = $x; # 初期値で固定する
                      
 		     $self->loss($X,$T);
 

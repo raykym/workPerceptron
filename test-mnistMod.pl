@@ -2,6 +2,11 @@
 #
 # MnistLoadモジュールを試す
 #
+# バイナリーからPDLにロードして、
+#
+# 別関数で、
+# imageファイルは標準化、
+# labelファイルはホットワンへの変換を行う
 
 use strict;
 use warnings;
@@ -77,5 +82,9 @@ say $train_x->info;
 my $X = MnistLoad::normalize($train_x);
     
 say $X->range(0);
+
+say $X->shape;
+
+
 
 
