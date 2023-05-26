@@ -59,13 +59,9 @@ sub backward {
     #  say $DOUT->shape;
 
     $self->{W} = $self->{W}->transpose;
-    #  say "DEBUG: Affine: backward W_t";
-    #  say $self->{W}->shape;
     my $DX = $DOUT x $self->{W};
 
     $self->{X} = $self->{X}->transpose;
-    #  say "DEBUG: Affine: backward X_t";
-    #  say $self->{X}->shape;
     $self->{dW} = $self->{X} x $DOUT;
 
     #  say "Affine backward: DOUT";
@@ -73,14 +69,11 @@ sub backward {
     #  say "";
 
     #行方向にsum axis=0
-    #$self->{db} = sum($DOUT);
+    #$self->{db} = sum($DOUT); # 直訳表記perlではこの機能は無い
     my $DOUT_tmp = $DOUT->copy;
        $DOUT_tmp = $DOUT_tmp->xchg(0,1); # 列にノードを持ってくる
     $DOUT_tmp = sumover($DOUT_tmp); # 行をsumする
     $self->{db} = $DOUT_tmp;
-
-    #  say "Affine: backward:";
-    #  say $self->{db}->shape;
 
     undef $DOUT_tmp;
     # 転置を戻す

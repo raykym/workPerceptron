@@ -1,6 +1,6 @@
-package SoftmaxWithLoss_layer;
+package IdentityWithLoss_layer;
 
-# softmaxレイヤーのクラス
+# 恒等関数レイヤーのクラス
 
 use utf8;
 binmode 'STDOUT' , ':utf8';
@@ -36,8 +36,8 @@ sub forward {
     $T = topdl($T);
 
     $self->{t} = $T;
-    $self->{y} = Ml_functions::softmax($X);
-    $self->{loss} = Ml_functions::cross_entropy_error($self->{y} , $self->{t});
+    $self->{y} = $X; # 恒等関数なのでそのまま
+    $self->{loss} = Ml_functions::sum_squared_error($self->{y} , $self->{t});
 
     #  say "DEBUG: sofrmax: forward";
     #  say $self->{t};
@@ -50,13 +50,8 @@ sub backward {
     my ( $self , $DOUT ) = @_;
     #$DOUT = topdl($DOUT); 
     $DOUT = 1;
-    my @dims = $self->{t}->dims;
-    #  say "softmax backward";
-    #  say @dims;
-    #  say "";
-    my $batch_size = $dims[1]; # PDLでは列を指定する必要があるはず
 
-    my $DX = ( $self->{y} - $self->{t} ) / $batch_size;
+    my $DX = $self->{y};
 
     return $DX;
 }

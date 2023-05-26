@@ -43,7 +43,7 @@ sub relu {
         return $X;
     } elsif ( $cmp >= 0 ) {
 	#$zが等しいか大きいのでzeroを返す
-        return zeros($X);
+        return $z;
     }
 }
 
@@ -59,11 +59,11 @@ sub relu_grad {
 sub softmax {
     my $X = shift;
     $X = topdl($X);
+    $X_tmp = $X->copy;
 
-    $X -= max($X); # オーバーフロー対策　最大値を全体から引く
+    $X_tmp -= max($X_tmp); # オーバーフロー対策　最大値を全体から引く
 
-    return exp($X) / sum( exp($X) );
-
+    return exp($X_tmp) / sum( exp($X_tmp) );
 }
 
 sub sum_squared_error {
@@ -89,20 +89,12 @@ sub cross_entropy_error {
     $T_tmp->reshape($T_tmp->nelem);
 
     if ( $Y_tmp->nelem == $T_tmp->nelem ) {
-
+	    
         $T_tmp = &argmax($T_tmp);
-=pod
-	# np.argmaxの置き換え
-        my $f = ones($T);
-	   $f *= max($T); #最大値と同型
-	   $T .= $f == $T; #比較して最大値のインデックスが1で表示されたndarray
-	   undef $f;
-=cut
-    }
+    } # if
 
-    my $batch_size = $Y_tmp->shape(); #sample: [ 100 ]
+    my $batch_size = $Y_tmp->shape; 
     return -sum(log($Y_tmp + 0.00000001) * $T_tmp) / $batch_size; 
-
 }
 
 sub softmax_loss {
@@ -123,7 +115,7 @@ sub numerical_gradient {
     say "";
 =cut
 
-    my $h = 0.0001;
+    my $h = 1e-4;
 
     my $grad = zeros($X);
 
@@ -136,13 +128,13 @@ sub numerical_gradient {
 	   $X(@idx) += $h;
         my $fxh1 = &{$func}($X);
 
-	   $X(@idx) .= $TMP_VAL;
+	   $X(@idx) .= $TMP_VAL; #元に戻して
            $X(@idx) -= $h;
 	my $fxh2 = &{$func}($X);
 
 	   $grad(@idx) .= ($fxh1 - $fxh2) / (2*$h);
 
-	   $X(@idx) .= $TMP_VAL;
+	   $X(@idx) .= $TMP_VAL; #もとに戻す
 
 	   $it->itrenext;
     }

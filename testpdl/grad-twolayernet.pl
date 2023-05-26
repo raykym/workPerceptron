@@ -19,6 +19,7 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 use MnistLoad;
 use TwoLayerNet;
+use Adam_optimizer;
 
 # MNISTファイルのロード
 my ($train_x , $train_t , $test_x , $test_t ) = MnistLoad::mnistload();
@@ -42,6 +43,7 @@ my $test_t_T = $test_t->copy;
    $test_t_T = $test_t_T->transpose;
 
 my $network = TwoLayerNet->new(784 , 50 , 10 );
+   #my $network = TwoLayerNet->new(784 , 50 , 1 , 'xavier');
               # input_size = 784 , hidden_size = 50 , output_size = 10
 
 my $itres_num = 10000;
@@ -82,12 +84,17 @@ for my $i ( 0 .. $itres_num ) {
     # 傾き計算
     my $grad = $network->gradient($x_batch , $t_batch);
 
-    # 更新 これはアクセサーを用意していなかった。。。
+    # 更新 
+    my $optimizer = Adam_optimizer->new();
+       $optimizer->update($network->{params} , $grad );
+=pod
     for my $key ( 'W1' , 'b1' , 'W2' , 'b2' ) {
 	#say "key: $key";
 	#say $grad->{$key}->shape; 
+	# 原文そのままだけどこの書き方は原則違反だよね。アクセサーを用意していない
         $network->{params}->{$key} -= $learning_rate * $grad->{$key};
     }
+=cut
 
     my $loss = $network->loss($x_batch , $t_batch);
     push(@{$train_loss_list} , $loss );

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#
+# twolayernetを使って数値微分とバックプロパゲーションを比較する
 
 use strict;
 use warnings;
@@ -31,12 +31,13 @@ $test_x = MnistLoad::normalize($test_x);
 $train_l = MnistLoad::chg_hotone($train_l);
 $test_l = MnistLoad::chg_hotone($test_l);
 
-my $network = TwoLayerNet->new(784 , 50 , 10 );
+my $network = TwoLayerNet->new(784 , 50 , 10);
+#my $network = TwoLayerNet->new(784 , 50 , 1 , 'xavier');
               # input_size = 784 , hidden_size = 50 , output_size = 10
 
 # データセットから4個をバッチとして分ける 分離する意味が在るかわからないけれど
-my $x_batch = $train_x(:1)->sever;
-my $t_batch = $train_l(:1)->sever;   # l -> t ラベルはターゲット
+my $x_batch = $train_x(:3)->sever;
+my $t_batch = $train_l(:3)->sever;   # l -> t ラベルはターゲット
 
 say "DEBUG: x_batch";
 say $x_batch->shape; # ( 4 , 784)

@@ -56,7 +56,7 @@ sub forward {
 
     my $OUT = $X->copy;
 
-    #$OUT($self->{mask}) = 0; # maskの位置を0にする
+    #$OUT($self->{mask}) = 0; # 直訳だとmaskの位置を0にする
     # PDLだと機能が無いのでmaskfilterを作成
     # relumaskに加えると論理がわかりにくく成るのであえて別にする
 

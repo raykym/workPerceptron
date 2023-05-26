@@ -20,6 +20,8 @@ use Ml_functions;
 use Relu_layer;
 use Affine_layer;
 use SoftmaxWithLoss_layer;
+use Sigmoid_layer;
+use IdentityWithLoss_layer;
 
 
 use Tie::IxHash;
@@ -32,15 +34,34 @@ sub new {
     my $class = ref $proto || $proto;
     my ( $input_size , $hidden_size , $output_size , $weight_init_std ) = @_;
        $weight_init_std = 0.01 if ! defined $weight_init_std;
+       # xavier , heを入れるとそれぞれの初期化になる
 
     my $rng = PDL::GSL::RNG->new('mt19937_1999');
        $rng->set_seed(time());
 
     my $self = {};
-       $self->{params}->{W1} = $weight_init_std * $rng->ran_gaussian(1 ,$input_size , $hidden_size );
+       # W1のweight調整
+       if ($weight_init_std =~ /^[0-9]+$|^[0-9]+\.[0-9]+$/ ) {
+           # 数値ならスルー
+       } elsif ($weight_init_std eq 'xavier' ) {
+           $weight_init_std = sqrt( 1 / $input_size );
+       } elsif ( $weight_init_std eq 'he' ) {
+           $weight_init_std = sqrt( 2 / $input_size );
+       }
+       $self->{params}->{W1} = $weight_init_std * $rng->ran_gaussian($weight_init_std ,$input_size , $hidden_size );
+       # ($hidden_size , $input_size)に転置する
        $self->{params}->{W1} = $self->{params}->{W1}->transpose; # waitsは転置する
        $self->{params}->{b1} = zeros($hidden_size);
-       $self->{params}->{W2} = $weight_init_std * $rng->ran_gaussian(1 ,$hidden_size , $output_size );
+       # W2のweight調整
+       if ($weight_init_std =~ /^[0-9]+$|^[0-9]+\.[0-9]+$/ ) {
+           # 数値ならスルー
+       } elsif ($weight_init_std eq 'xavier' ) {
+           $weight_init_std = sqrt( 1 / $hidden_size );
+       } elsif ( $weight_init_std eq 'he' ) {
+           $weight_init_std = sqrt( 2 / $hidden_size );
+       }
+       $self->{params}->{W2} = $weight_init_std * $rng->ran_gaussian($weight_init_std ,$hidden_size , $output_size );
+       # ($output_size , $hidden_size)に転置する
        $self->{params}->{W2} = $self->{params}->{W2}->transpose; 
        $self->{params}->{b2} = zeros($output_size);
 
@@ -49,9 +70,14 @@ sub new {
        $self->{layers} = \%layers;
 
        $self->{layers}->{Affine1} = Affine_layer->new($self->{params}->{W1} , $self->{params}->{b1});
-       $self->{layers}->{Relu1} = Relu_layer->new();
+       #$self->{layers}->{Relu1} = Relu_layer->new();
+       $self->{layers}->{Sigmoid1} = Sigmoid_layer->new();
        $self->{layers}->{Affine2} = Affine_layer->new($self->{params}->{W2} , $self->{params}->{b2});
-       $self->{lastLayer} = SoftmaxWithLoss_layer->new();
+       #$self->{lastLayer} = SoftmaxWithLoss_layer->new();
+       $self->{lastLayer} = IdentityWithLoss_layer->new();
+
+       # 追加
+       $self->{weight_decay_rambda} = 0.1;
 
      bless $self , $class;
 
@@ -62,11 +88,6 @@ sub predict {
     my $self = shift;
     my $X = shift;
     $X = topdl($X);
-=pod
-    say "DEBUG: predict: X";
-    say $X->shape;
-    say "";
-=cut
 
     for my $key ( keys %{$self->{layers}} ) {
 	    #say "DEBUG: predict: key: $key";
@@ -77,29 +98,31 @@ sub predict {
 
 sub loss {
     my ($self , $X , $T ) = @_;
-=pod
-    say "DEBUG: loss: T";
-    say $T->shape;
-    say "";
-=cut
+
     my $Y = $self->predict($X);
 
-    return $self->{lastLayer}->forward($Y , $T);
+    # weight_decayを追加する Affine　2層のweightから算出する
+    my $weight_decay = 0;
+       $weight_decay += 0.5 * $self->{weight_decay_rambda} * sum($self->{params}->{W1} ** 2);
+       $weight_decay += 0.5 * $self->{weight_decay_rambda} * sum($self->{params}->{W2} ** 2);
+
+    return $self->{lastLayer}->forward($Y , $T) + $weight_decay;
 }
 
 sub accuracy {
     my ( $self , $X , $T ) = @_;
 
     my $Y = $self->predict($X);
-    $Y = Ml_functions::argmax($Y);
-    $T = Ml_functions::argmax($T) if ( $T->ndims != 1 ) ;
+    my $Yi = Ml_functions::argmax($Y);
+    my $Ti = Ml_functions::argmax($T) if ( $T->ndims != 1 ) ;
     #my $accuracy = sum($Y == $T ) / float($X->shape(0)); # 直訳
     my @shape = $X->dims; #(列、行) 行を指定する
-    my $accuracy = sum($Y == $T ) / float($shape[1]);  
+    my $accuracy = sum($Yi == $Ti ) / float($shape[1]);  
 
     undef @shape;
     undef $Y;
-    undef $T;
+    undef $Yi;
+    undef $Ti;
 
     return $accuracy;
 }
@@ -159,10 +182,10 @@ sub gradient {
        }
        undef @keylist; 
 
-    my $grads = {};
-    $grads->{W1} = $self->{layers}->{Affine1}->dW();
+    my $grads = {};     # weight_decayを追加した
+    $grads->{W1} = $self->{layers}->{Affine1}->dW() + $self->{weight_decay_lambda} * $self->{params}->{W1};
     $grads->{b1} = $self->{layers}->{Affine1}->db();
-    $grads->{W2} = $self->{layers}->{Affine2}->dW();
+    $grads->{W2} = $self->{layers}->{Affine2}->dW() + $self->{weight_decay_lambda} * $self->{params}->{W2};
     $grads->{b2} = $self->{layers}->{Affine2}->db();
 
     return $grads;
