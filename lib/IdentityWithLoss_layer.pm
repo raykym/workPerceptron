@@ -20,9 +20,9 @@ sub new {
     my $class = ref $proto || $proto;
 
     my $self = {};
-       $self->{loss} = null;
-       $self->{y} = null;
-       $self->{t} = null;
+       $self->{loss} = undef;
+       $self->{y} = undef;
+       $self->{t} = undef;
 
     bless $self , $class;
 
@@ -32,8 +32,8 @@ sub new {
 
 sub forward {
     my ($self , $X , $T) = @_;
-    $X = topdl($X);
-    $T = topdl($T);
+    #$X = topdl($X);
+    #$T = topdl($T);
 
     $self->{t} = $T;
     $self->{y} = $X; # 恒等関数なのでそのまま

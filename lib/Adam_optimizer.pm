@@ -13,8 +13,11 @@ sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;
 
+    # 引数にlearn_lateを受け付ける
+
     my $self = {};
-       $self->{lr} = 0.001;
+       $self->{lr} = shift;
+       $self->{lr} = 0.001 if (! defined($self->{lr}));
        $self->{beta1} = 0.9;
        $self->{beta2} = 0.999;
        $self->{itre} = 0;

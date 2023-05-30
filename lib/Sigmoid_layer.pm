@@ -15,7 +15,7 @@ sub new {
     my $class = ref $proto || $proto;
 
     my $self = {};
-       $self->{out} = null;
+       $self->{out} = undef;
 
     bless $self , $class;
 

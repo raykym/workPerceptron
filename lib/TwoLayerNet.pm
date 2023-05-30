@@ -8,13 +8,15 @@ use v5.32;
 use utf8;
 binmode 'STDOUT' , ':utf8';
 
+use Carp;
+
 use PDL;
 use PDL::Core ':Internal';
 use PDL::NiceSlice;
+use PDL::GSL::RNG;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use Multilayer_PDL;
 use Ml_functions;
 #
 use Relu_layer;
@@ -32,7 +34,7 @@ use Time::HiRes qw / time /;
 sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;
-    my ( $input_size , $hidden_size , $output_size , $weight_init_std ) = @_;
+    my ( $input_size , $hidden_size , $output_size , $weight_init_std , $weight_decay_rambda ) = @_;
        $weight_init_std = 0.01 if ! defined $weight_init_std;
        # xavier , heを入れるとそれぞれの初期化になる
 
@@ -77,7 +79,8 @@ sub new {
        $self->{lastLayer} = IdentityWithLoss_layer->new();
 
        # 追加
-       $self->{weight_decay_rambda} = 0.1;
+       $self->{weight_decay_rambda} = $weight_decay_rambda;
+       $self->{weight_decay_rambda} = 0 if (! defined($self->{weight_decat_rambda}));
 
      bless $self , $class;
 
@@ -87,11 +90,11 @@ sub new {
 sub predict {
     my $self = shift;
     my $X = shift;
-    $X = topdl($X);
+    #$X = topdl($X);
 
     for my $key ( keys %{$self->{layers}} ) {
-	    #say "DEBUG: predict: key: $key";
-       $X = $self->{layers}->{$key}->forward($X); 
+	#say "DEBUG: predict: key: $key";
+	$X = $self->{layers}->{$key}->forward($X); 
     }
     return $X;
 }
@@ -116,8 +119,9 @@ sub accuracy {
     my $Yi = Ml_functions::argmax($Y);
     my $Ti = Ml_functions::argmax($T) if ( $T->ndims != 1 ) ;
     #my $accuracy = sum($Y == $T ) / float($X->shape(0)); # 直訳
-    my @shape = $X->dims; #(列、行) 行を指定する
-    my $accuracy = sum($Yi == $Ti ) / float($shape[1]);  
+    my @shape = $X->dims; #(列、行) 行を指定する （データ個数のはず)
+    my $accuracy = sum($Yi == $Ti ) / float($shape[1]); # 1次元のインデックスが一致する場所を足し合わせて、データ数で割る 
+    #my $accuracy = sum($Yi == $Ti ) / double($shape[1]);  
 
     undef @shape;
     undef $Y;

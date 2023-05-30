@@ -18,14 +18,14 @@ sub new {
 
     my $self = {};
        $self->{W} = shift;
-       $self->{W} = topdl($self->{W});
+       #  $self->{W} = topdl($self->{W});
        #$self->{W} = $self->{W}->transpose; # PDLの為 -> TwoLayerNetで呼び出されるので転置済み
        $self->{b} = shift;
-       $self->{b} = topdl($self->{b});
+       #  $self->{b} = topdl($self->{b});
 
-       $self->{X} = null;
-       $self->{dW} = null;
-       $self->{db} = null;
+       $self->{X} = undef;
+       $self->{dW} = undef;
+       $self->{db} = undef;
 
     bless $self , $class;
 
@@ -35,7 +35,7 @@ sub new {
 
 sub forward {
     my ($self , $X ) = @_;
-    $X = topdl($X);
+    #$X = topdl($X);
 
     $self->{X} = $X;
 =pod

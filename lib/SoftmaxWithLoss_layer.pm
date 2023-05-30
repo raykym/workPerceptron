@@ -20,9 +20,9 @@ sub new {
     my $class = ref $proto || $proto;
 
     my $self = {};
-       $self->{loss} = null;
-       $self->{y} = null;
-       $self->{t} = null;
+       $self->{loss} = undef;
+       $self->{y} = undef;
+       $self->{t} = undef;
 
     bless $self , $class;
 

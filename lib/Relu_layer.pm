@@ -15,7 +15,7 @@ sub new {
     my $class = ref $proto || $proto;
 
     my $self = {};
-       $self->{mask} = null;
+       $self->{mask} = undef;
        # maskは比較して0以下のノードをTrue("1")とするndarrayが必要
 
     bless $self , $class;
