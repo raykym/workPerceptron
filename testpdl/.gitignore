@@ -1,2 +1,4 @@
 # testpdlディレクトリ用
-sinc-plotdata.txt*
+sinc_plotdata.txt*
+twolayernet.hparams*
+multilayernet.hparams*

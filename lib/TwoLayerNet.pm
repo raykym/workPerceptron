@@ -50,7 +50,8 @@ sub new {
        } elsif ( $weight_init_std eq 'he' ) {
            $weight_init_std = sqrt( 2 / $input_size );
        }
-       $self->{params}->{W1} = $weight_init_std * $rng->ran_gaussian($weight_init_std ,$input_size , $hidden_size );
+       #$self->{params}->{W1} = $weight_init_std * $rng->ran_gaussian($weight_init_std ,$input_size , $hidden_size );
+       $self->{params}->{W1} = $rng->ran_gaussian($weight_init_std ,$input_size , $hidden_size );
        # ($hidden_size , $input_size)に転置する
        $self->{params}->{W1} = $self->{params}->{W1}->transpose; # waitsは転置する
        $self->{params}->{b1} = zeros($hidden_size);
@@ -62,7 +63,8 @@ sub new {
        } elsif ( $weight_init_std eq 'he' ) {
            $weight_init_std = sqrt( 2 / $hidden_size );
        }
-       $self->{params}->{W2} = $weight_init_std * $rng->ran_gaussian($weight_init_std ,$hidden_size , $output_size );
+       #$self->{params}->{W2} = $weight_init_std * $rng->ran_gaussian($weight_init_std ,$hidden_size , $output_size );
+       $self->{params}->{W2} = $rng->ran_gaussian($weight_init_std ,$hidden_size , $output_size );
        # ($output_size , $hidden_size)に転置する
        $self->{params}->{W2} = $self->{params}->{W2}->transpose; 
        $self->{params}->{b2} = zeros($output_size);

@@ -37,7 +37,6 @@ use PDL::IO::Storable;
 my $trainMake = Sincpdl->new;
 my ( $all_x , $all_t ) = $trainMake->make;
 
-my $network = TwoLayerNet->new(2 , 500 , 1 , 'xavier' , 0 );
     # input_size , hidden_size , output_size , waits_init , weight_decay_rambda
     # 活性化関数はTwoLayerNetで直接指定
 my @dims = $all_x->dims;
@@ -50,7 +49,10 @@ my $epoch = 10; #エポック数
 # L2normはTwoLayerNet.pmで決め打ちなので、そちらを編集する必要がある。
 
 my $learn_rate = 0.01; # optimizerで指定する
-my $optimizer = Adam_optimizer->new($learn_rate);
+
+my $network = undef;
+my $optimizer = undef;
+my $l2norm = 0;
 
 my $serialize = undef;
 
@@ -86,8 +88,23 @@ sub makeindex {
     return @index;
 }
 
+for my $pattern ( 1 .. 10 ) {
 
+ # ハイパーパラメータをランダムで設定
+ my $unit = int(rand(1000));
+ $batch_size = int(rand(9999));
+ my $mult = int(13494 / $batch_size );  # おおよそデータ総数40480の1/3になるように 
+ $pickup_size = $batch_size * $mult;
+ $itre = $pickup_size / $batch_size;
+ $epoch = int(rand(2000));
+ $learn_rate = 0.1 / int(rand(1000));
+ $l2norm = 0.9 / int(rand(100));
+ 
 
+ $network = TwoLayerNet->new(2 , $unit , 1 , 'xavier' , $l2norm );
+ $optimizer = Adam_optimizer->new($learn_rate);
+
+ Logging("U:$unit b:$batch_size ep:$epoch itre:$itre pickup:$pickup_size lr:$learn_rate L2norm:$l2norm ");
 
 
 
@@ -118,7 +135,7 @@ for my $epoch_cnt ( 1 .. $epoch ) {
     my $pickup_T_PDL_T = $pickup_T_PDL->copy;
        $pickup_T_PDL_T = $pickup_T_PDL->transpose;
 
-    Logging("DEBUG: itre in");
+       #Logging("DEBUG: itre in");
     #for (my $idx=0 ; $idx <= $itre -1 ; $idx++ ) {
     for my $idx (0 .. $itre-1) {
         # バッチに切り出し
@@ -138,14 +155,14 @@ for my $epoch_cnt ( 1 .. $epoch ) {
         my $loss = $network->loss($x_batch , $t_batch);
    #  say "itre: $idx loss: $loss ";
     } # for $idx
-    Logging("DEBUG: itre out");
+    #Logging("DEBUG: itre out");
 
         # ガーベッジコレクションテスト
 	#    if ( $epoch_cnt == 15 ) {
-	    Logging("freeze");
+	#    Logging("freeze");
             $serialize = freeze $network;
             $network = thaw($serialize);
-	    Logging("thaw");
+	#    Logging("thaw");
 	#}
 
 
@@ -189,12 +206,17 @@ say " epoch loop time: $rap";
     }
     say "";
 =cut
+            #ガーベッジコレクション
+            $serialize = freeze $all_x;
+            $all_x = thaw($serialize);
+            $serialize = freeze $all_t;
+            $all_t = thaw($serialize);
 
 } # for epoch
 
 
 # 学習後に元データを入力して再現性を確認する
-   open ( my $fh , '>' , './sinc_plotdata.txt');
+   open ( my $fh , '>' , "./sinc_plotdata.txt_U${unit}_b${batch_size}_ep${epoch}_L2norm${l2norm}_pic${pickup_size}_lr${learn_rate}_p$pattern");
     # x,yを与えて結果をまとめてファイル出力,gnuplotで利用する
 
     for ( my $x = -10 ; $x <= 10 ; $x++  ) {
@@ -207,5 +229,8 @@ say " epoch loop time: $rap";
     }
 
     close $fh;
+
+
+} # for pattern
 
 exit;

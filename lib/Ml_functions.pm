@@ -71,6 +71,10 @@ sub sum_squared_error {
     $Y = topdl($Y);
     $T = topdl($T);
 
+    #my @tmp = $Y->dims;
+    #my @tmp2 = $T->dims;
+    #&::Logging("DEBUG: Y: @tmp T: @tmp2 ");
+
     return 0.5 * sum(($Y-$T)**2);
 }
 

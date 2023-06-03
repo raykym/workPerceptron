@@ -17,10 +17,11 @@ use Time::HiRes '/ time /';
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use Sincpdl;
-use TwoLayerNet;
+#use TwoLayerNet;
     # 直接編集して、書き換えが必要！！！！！！！
     # 用途に応じて、Sigmoid_layer , IdentityWithLoss_layerの指定が必要
-    # L2normの指定はパーッケージ側
+use MultiLayerNet;
+    # last_layerについては直接書き換えが必要
 use Adam_optimizer;
 
 use Data::Dumper;
@@ -33,20 +34,22 @@ my $trainMake = Sincpdl->new;
 my ( $all_x , $all_t ) = $trainMake->make;
 
 my $input_size = 2;
-my $hidden_size = 500;
+my $hidden_size =  [ 5 ];
 my $output_size = 1;
+my $activation = 'sigmoid';
 my $waits_init = "xavier";
 my $L2norm = 0.0;
-my $network = TwoLayerNet->new($input_size , $hidden_size , $output_size , $waits_init , $L2norm );
+#my $network = TwoLayerNet->new($input_size , $hidden_size , $output_size , $waits_init , $L2norm );
+my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm );
     # input_size , hidden_size , output_size , waits_init , weight_decay_rambda
     # 活性化関数はTwoLayerNetで直接指定
 my @dims = $all_x->dims;
 my $all_data_size = $dims[0]; # Sincpdlの最初の次元が個数になっているので
-my $pickup_size = 24000; #データのピックアップ数
-my $test_size = 100; #テストデータのピックアップ数
-my $batch_size = 3000; #バッチ数
+my $pickup_size = 10; #データのピックアップ数
+my $test_size = 1; #テストデータのピックアップ数
+my $batch_size = 3; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 2000; #エポック数
+my $epoch = 10; #エポック数
 # L2normはTwoLayerNet.pmで決め打ちなので、そちらを編集する必要がある。
 
 my $learn_rate = 0.001; # optimizerで指定する
@@ -85,7 +88,8 @@ sub makeindex {
     return @index;
 }
 
-
+#say Dumper $network;
+#exit;
 
 # 学習の繰り返し回数 
 for my $epoch_cnt ( 1 .. $epoch ) {
@@ -116,10 +120,11 @@ for my $epoch_cnt ( 1 .. $epoch ) {
         $x_batch = $pickup_X_PDL->range($idx * $batch_size , $batch_size)->sever;
         $t_batch = $pickup_T_PDL->range($idx * $batch_size , $batch_size)->sever;
 
-        $x_batch = $x_batch->transpose;
+	$x_batch = $x_batch->transpose;
         #t_batchは1次元なのでパス
 	#
-	#say "itre: $idx";
+	#my @tmp = $x_batch->dims;
+	#&::Logging("DEBUG: x_batch: @tmp");
 
         # 傾き計算
 	my $grad = $network->gradient($x_batch , $t_batch);
@@ -157,7 +162,7 @@ for my $epoch_cnt ( 1 .. $epoch ) {
 
 
 # 学習後に元データを入力して再現性を確認する
-   open ( my $fh , '>' , "./sinc_plotdata.txt_U${hidden_size}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}");
+   open ( my $fh , '>' , "./sinc_plotdata.txt_U@{${hidden_size}}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}");
     # x,yを与えて結果をまとめてファイル出力,gnuplotで利用する
 
     for ( my $x = -10 ; $x <= 10 ; $x++  ) {
@@ -188,5 +193,5 @@ for my $epoch_cnt ( 1 .. $epoch ) {
      $hparams->{learan_rate} = $learn_rate;
      $hparams->{optimizer} = $optimizer;
 
-     store $hparams , "twolayernet.hparams_U${hidden_size}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}";
+     store $hparams , "multilayernet.hparams_U@{${hidden_size}}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}";
 

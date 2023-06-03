@@ -49,6 +49,9 @@ sub forward {
 =cut
     my $OUT = $X x $self->{W} + $self->{b};
 
+    #my @tmp = $OUT->dims;
+    #&::Logging("DEBUG: Affine: forward: OUT: @tmp ");
+
     return $OUT;
 }
 
