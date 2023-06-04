@@ -46,7 +46,7 @@ my $pickup_size = 24000; #データのピックアップ数
 my $test_size = 100; #テストデータのピックアップ数
 my $batch_size = 3000; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 2000; #エポック数
+my $epoch = 2; #エポック数
 # L2normはTwoLayerNet.pmで決め打ちなので、そちらを編集する必要がある。
 
 my $learn_rate = 0.001; # optimizerで指定する

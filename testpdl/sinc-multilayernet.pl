@@ -34,23 +34,22 @@ my $trainMake = Sincpdl->new;
 my ( $all_x , $all_t ) = $trainMake->make;
 
 my $input_size = 2;
-my $hidden_size =  [ 5 ];
+my $hidden_size =  [ 100 , 100 ];
 my $output_size = 1;
-my $activation = 'sigmoid';
-my $waits_init = "xavier";
-my $L2norm = 0.0;
+my $activation = 'relu';
+my $waits_init = "he";
+my $L2norm = 0.5;
 #my $network = TwoLayerNet->new($input_size , $hidden_size , $output_size , $waits_init , $L2norm );
 my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm );
     # input_size , hidden_size , output_size , waits_init , weight_decay_rambda
     # 活性化関数はTwoLayerNetで直接指定
 my @dims = $all_x->dims;
 my $all_data_size = $dims[0]; # Sincpdlの最初の次元が個数になっているので
-my $pickup_size = 10; #データのピックアップ数
-my $test_size = 1; #テストデータのピックアップ数
-my $batch_size = 3; #バッチ数
+my $pickup_size = 12000; #データのピックアップ数
+my $test_size = 100; #テストデータのピックアップ数
+my $batch_size = 1000; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 10; #エポック数
-# L2normはTwoLayerNet.pmで決め打ちなので、そちらを編集する必要がある。
+my $epoch = 1000; #エポック数
 
 my $learn_rate = 0.001; # optimizerで指定する
 my $optimizer = Adam_optimizer->new($learn_rate);
@@ -154,15 +153,19 @@ for my $epoch_cnt ( 1 .. $epoch ) {
     Logging("epoch: $epoch_cnt");
     Logging("$train_acc | $test_acc");
 
-    #ガーベッジコレクション
+    #ガーベッジコレクション というかシリアライズすると処理速度が低下しない epoch毎に1.5倍の時間がかかる
     $serialize = freeze $network;
     $network = thaw($serialize);
 
 } # for epoch
 
 
+
+
+my $string_hidden = join('_' , @{$hidden_size});
+
 # 学習後に元データを入力して再現性を確認する
-   open ( my $fh , '>' , "./sinc_plotdata.txt_U@{${hidden_size}}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}");
+   open ( my $fh , '>' , "./sinc_plotdata.txt_U${string_hidden}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}_$activation");
     # x,yを与えて結果をまとめてファイル出力,gnuplotで利用する
 
     for ( my $x = -10 ; $x <= 10 ; $x++  ) {
@@ -183,6 +186,7 @@ for my $epoch_cnt ( 1 .. $epoch ) {
      $hparams->{output_size} = $output_size;
      $hparams->{waits_init} = $waits_init;
      $hparams->{L2norm} = $L2norm;
+     $hparams->{activation} = $activation;
      $hparams->{network} = $network;
      $hparams->{all_data_size} = $all_data_size; 
      $hparams->{pickup_size} = $pickup_size; 
@@ -193,5 +197,5 @@ for my $epoch_cnt ( 1 .. $epoch ) {
      $hparams->{learan_rate} = $learn_rate;
      $hparams->{optimizer} = $optimizer;
 
-     store $hparams , "multilayernet.hparams_U@{${hidden_size}}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}";
+     store $hparams , "multilayernet.hparams_U${string_hidden}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}_$activation";
 

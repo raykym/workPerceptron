@@ -1,7 +1,8 @@
 package Pdlitre;
 
 # PDLを受けて、全体のインデックスをタプルで返す
-# 
+# whileループと組み合わせて使う。
+#
 use PDL;
 use PDL::NiceSlice;
 use PDL::Core ':Internal';

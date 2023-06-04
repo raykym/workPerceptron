@@ -51,14 +51,14 @@ sub new {
        my $activation_layer = { sigmoid => 'Sigmoid_layer' , relu => 'Relu_layer' };
        tie( my %layers , 'Tie::IxHash' );  # OrderdDictをIxHashで置き換え
        $self->{layers} = \%layers; 
-       for my $idx ( 1 .. $self->{hidden_layer_num} + 1) { 
+       for my $idx ( 1 .. $self->{hidden_layer_num} ) { 
            my $str = "Affine$idx";
            $self->{layers}->{"Affine$idx"} = Affine_layer->new($self->{params}->{"W$idx"} , $self->{params}->{"b$idx"});
-           $self->{"Activation_function$idx"} = $activation_layer->{$activation}->new;
+           $self->{layers}->{"Activation_function$idx"} = $activation_layer->{$activation}->new;
        } # for
   # 1層では動作が合わないので、外してみる
-       #my $num = $self->{hidden_layer_num} + 2; # perlではidxがスコープを外れるので
-       #$self->{layers}->{"Affine$num"} = Affine_layer->new($self->{params}->{"W$num"} , $self->{params}->{"b$num"});
+       my $num = $self->{hidden_layer_num} + 1; # perlではidxがスコープを外れるので
+       $self->{layers}->{"Affine$num"} = Affine_layer->new($self->{params}->{"W$num"} , $self->{params}->{"b$num"});
 
        #$self->{last_layer} = SoftmaxWithLoss_layer->new();
        $self->{last_layer} = IdentityWithLoss_layer->new();
@@ -118,8 +118,9 @@ sub loss {
 
     my $weight_decay = 0;
     for my $idx ( 1 .. $self->{hidden_layer_num} + 1 ) {
-        my $W = $self->{params}->{"W$idx"};
-        $weight_decay += 0.5 * $self->{weight_decay_lambda} * sum($W ** 2);
+	    # my $W = $self->{params}->{"W$idx"};
+	    # $weight_decay += 0.5 * $self->{weight_decay_lambda} * sum($W ** 2);
+        $weight_decay += 0.5 * $self->{weight_decay_lambda} * sum($self->{params}->{"W$idx"} ** 2);
     }
     return $self->{last_layer}->forward($Y,$T) + $weight_decay;
 }
