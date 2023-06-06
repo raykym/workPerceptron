@@ -1,56 +1,79 @@
 #!/usr/bin/env perl
 #
-# sincを学習して再現性を試す。　普遍性の実験
-#
+# twolayernetを使って数値微分とバックプロパゲーションを比較する
 
 use v5.32;
 use utf8;
 
 binmode 'STDOUT' , ':utf8';
+
 $|=1;
 
 use PDL;
 use PDL::Core ':Internal';
 use PDL::NiceSlice;
 
-use Time::HiRes '/ time /';
-
-use FindBin;
-use lib "$FindBin::Bin/../lib";
-use Sincpdl;
-use MultiLayerNet;
-use Adam_optimizer;
-
-use Data::Dumper;
-
 use Storable qw/ freeze thaw store retrieve/;
 use PDL::IO::Storable;
 
-# データ取得
-my $trainMake = Sincpdl->new;
-my ( $all_x , $all_t ) = $trainMake->make;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use MnistLoad;
+use MultiLayerNet;
+use Adam_optimizer;
 
-my $input_size = 2;
+# MNISTファイルのロード
+my ($train_x , $train_t , $test_x , $test_t ) = MnistLoad::mnistload();
+
+# 標準化
+$train_x = MnistLoad::normalize($train_x);
+$test_x = MnistLoad::normalize($test_x);
+
+#ラベルをhot-one化
+$train_t = MnistLoad::chg_hotone($train_t);
+$test_t = MnistLoad::chg_hotone($test_t);
+
+=pod
+say "train x";
+say $train_x->dims;
+say "test x";
+say $test_x->dims;
+say "train t";
+say $train_t->dims;
+say "test t";
+say $test_t->dims;
+
+exit;
+=cut
+
+my @dims_x = $train_x->dims;
+my @dims_t = $train_t->dims;
+
+# パラメータ
+my $input_size = $dims_x[1];
 my $hidden_size =  [ 100 , 100 ];
-my $output_size = 1;
+my $output_size = $dims_t[1];
 my $activation = 'relu';   # relu or sigmoid
 my $waits_init = "he";     # xavier or he
-my $L2norm = 0.9;
-my $loss_func = 'mean_squared_error';  # mean_squared_error or cross_entropy_error
+my $L2norm = 0.0;
+my $loss_func = 'cross_entropy_error';  # mean_squared_error or cross_entropy_error
 my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm , $loss_func);
 
-my @dims = $all_x->dims;
-my $all_data_size = $dims[0]; # Sincpdlの最初の次元が個数になっているので
-my $pickup_size = 24000; #データのピックアップ数
-my $test_size = 100; #テストデータのピックアップ数
-my $batch_size = 50; #バッチ数
+my $all_data_size = $dims_x[0]; # Mnistloadの最初の次元が個数になっているので
+my $pickup_size = 20000; #データのピックアップ数
+my $test_size = 1000; #テストデータのピックアップ数
+my $batch_size = 1000; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 1000; #エポック数
+my $epoch = 10; #エポック数
 
 my $learn_rate = 0.001; # optimizerで指定する
 my $optimizer = Adam_optimizer->new($learn_rate);
 
 my $serialize = undef;
+
+undef @dims_x;
+undef @dims_t;
+
 
 # サブ ルーチンエリア
 sub Logging {
@@ -73,7 +96,7 @@ sub makeindex {
 
     for my $i ( 0 .. $all_data_size -1) {  # この変数の使い方は良くないか。。。
         push(@array , [ $i , int(rand($all_data_size * 10)) ] ); # 乱数は$all_data_sizeよりも大きい数値
-    } 
+    }
     my @array_sort = sort { $a->[1] <=> $b->[1] } @array; # 乱数側をソートすると、indexがシャッフルされる
 
     for my $idx ( 0 .. $pickup_size - 1 ) {
@@ -82,27 +105,20 @@ sub makeindex {
     return @index;
 }
 
-#say Dumper $network;
-#exit;
-
 # 学習の繰り返し回数 
 for my $epoch_cnt ( 1 .. $epoch ) {
+    Logging("epoch: $epoch_cnt");
 
     my $x_batch = null;
     my $t_batch = null;
-=pod
-    my $pickup_idx = random($pickup_size); #ピックアップサイズのndarray (復元型抽出）
-    my $pickup_idx = random(@index); 
-       $pickup_idx = $pickup_idx * ($all_data_size - 1); # 最大値は全データ個数
-       $pickup_idx = convert($pickup_idx,long); # 整数に
-=cut
+
     my @index = &makeindex($pickup_size); # 非復元型抽出 エポック単位ではサンプルの重複はしない
     my $pickup_idx = pdl(@index);
     undef @index;
 
-    my $pickup_X_PDL = $all_x->index1d($pickup_idx)->sever;
-    my $pickup_T_PDL = $all_t->index1d($pickup_idx)->sever;
-    
+    my $pickup_X_PDL = $train_x->index1d($pickup_idx)->sever;
+    my $pickup_T_PDL = $train_t->index1d($pickup_idx)->sever;
+
     # accuraryで利用する転置
     my $pickup_X_PDL_T = $pickup_X_PDL->copy;
        $pickup_X_PDL_T = $pickup_X_PDL->transpose;
@@ -114,37 +130,29 @@ for my $epoch_cnt ( 1 .. $epoch ) {
         $x_batch = $pickup_X_PDL->range($idx * $batch_size , $batch_size)->sever;
         $t_batch = $pickup_T_PDL->range($idx * $batch_size , $batch_size)->sever;
 
-	$x_batch = $x_batch->transpose;
-        #t_batchは1次元なのでパス
-	#
-	#my @tmp = $x_batch->dims;
-	#&::Logging("DEBUG: x_batch: @tmp");
+        $x_batch = $x_batch->transpose; # shape (データ列 ,  データ個数)
+        $t_batch = $t_batch->transpose;
 
         # 傾き計算
-	my $grad = $network->gradient($x_batch , $t_batch);
-	#my $grad = $network->numerical_gradient($x_batch , $t_batch);
+        my $grad = $network->gradient($x_batch , $t_batch);
+        #my $grad = $network->numerical_gradient($x_batch , $t_batch);
 
         # 更新 
         $optimizer->update($network->{params} , $grad );
 
-	   #  say Dumper $network->{params};
+    } # for idx
 
-   #     my $loss = $network->loss($x_batch , $t_batch);
-   #  say "itre: $idx loss: $loss ";
-
-    } # for $idx
-    
-    # testデータの選択 (復元性抽出）
+   # testデータの選択 (復元性抽出）
     my $test_idx = random($test_size); #ピックアップサイズのndarray
-       $test_idx = $test_idx * ($all_data_size - 1); # 最大値は全データ個数
+       $test_idx = $test_idx * 9999; # mnistはテストデータが1万個別だてなのでall_data_sizeではない
        $test_idx = convert($test_idx,long); # 整数に
 
-    my $test_X_PDL = $all_x->index1d($test_idx)->sever;
-    my $test_T_PDL = $all_t->index1d($test_idx)->sever;
+    my $test_X_PDL = $test_x->index1d($test_idx)->sever;
+    my $test_T_PDL = $test_t->index1d($test_idx)->sever;
 
     my $train_acc = $network->accuracy($pickup_X_PDL_T , $pickup_T_PDL_T);
     my $test_acc = $network->accuracy($test_X_PDL->transpose , $test_T_PDL->transpose);
-    Logging("epoch: $epoch_cnt");
+
     Logging("$train_acc | $test_acc");
 
     #ガーベッジコレクション というかシリアライズすると処理速度が低下しない これをしないと、epoch毎に1.5倍の時間がかかる
@@ -153,27 +161,9 @@ for my $epoch_cnt ( 1 .. $epoch ) {
 
 } # for epoch
 
+#学習結果はロードした学習結果から別のプログラムで計測する
 
-
-
-my $string_hidden = join('_' , @{$hidden_size});
-
-# 学習後に元データを入力して再現性を確認する
-   open ( my $fh , '>' , "./sinc_plotdata.txt_U${string_hidden}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}_$activation");
-    # x,yを与えて結果をまとめてファイル出力,gnuplotで利用する
-
-    for ( my $x = -10 ; $x <= 10 ; $x++  ) {
-        for ( my $y = -10 ; $y <= 10 ; $y++  ) {
-            my $RET = $network->predict(pdl([ $x , $y ])); 
-	    #say "(loss)RET: $RET";
-	    my @out = list($RET);
-            say $fh " $x $y $out[0] ";
-        }
-    }
-
-  close $fh;
-
-  # イメージ取得 ハッシュにまとめる
+  # ハイパーパラメータ等ハッシュにまとめる
   my $hparams = {};
      $hparams->{input_size} = $input_size;
      $hparams->{hidden_size} = $hidden_size;
@@ -192,5 +182,9 @@ my $string_hidden = join('_' , @{$hidden_size});
      $hparams->{learan_rate} = $learn_rate;
      $hparams->{optimizer} = $optimizer;
 
-     store $hparams , "multilayernet.hparams_U${string_hidden}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}_$activation";
+my $string_hidden = join('_' , @{$hidden_size});
+
+store $hparams , "multilayernet.hparams_U${string_hidden}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}_$activation";
+
+
 

@@ -29,7 +29,7 @@ sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;
 
-    my ( $input_size , $hidden_size_list , $output_size , $activation , $weight_init_std , $weight_decay_lambda ) = @_;
+    my ( $input_size , $hidden_size_list , $output_size , $activation , $weight_init_std , $weight_decay_lambda , $loss_func ) = @_;
 
     my $self = {};
        $self->{input_size} = $input_size;
@@ -56,12 +56,17 @@ sub new {
            $self->{layers}->{"Affine$idx"} = Affine_layer->new($self->{params}->{"W$idx"} , $self->{params}->{"b$idx"});
            $self->{layers}->{"Activation_function$idx"} = $activation_layer->{$activation}->new;
        } # for
-  # 1層では動作が合わないので、外してみる
+
        my $num = $self->{hidden_layer_num} + 1; # perlではidxがスコープを外れるので
        $self->{layers}->{"Affine$num"} = Affine_layer->new($self->{params}->{"W$num"} , $self->{params}->{"b$num"});
 
-       #$self->{last_layer} = SoftmaxWithLoss_layer->new();
-       $self->{last_layer} = IdentityWithLoss_layer->new();
+       if ( $loss_func eq 'cross_entropy_error' ) {
+           $self->{last_layer} = SoftmaxWithLoss_layer->new();
+       } elsif ( $loss_func eq 'mean_squared_error') {
+           $self->{last_layer} = IdentityWithLoss_layer->new();
+       } else {
+           croak 'loss_finc not set';
+       }
 
     return $self;
 }

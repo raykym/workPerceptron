@@ -1,0 +1,3 @@
+# testmnistディレクトリ用
+multilayernet.hparams*
+mnist_fit.log*
