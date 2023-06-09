@@ -69,7 +69,9 @@ sub backward {
     my ( $self , $DOUT ) = @_;
     $DOUT = topdl($DOUT); 
 
-    my $DX = $self->maskfilter($DOUT);
+    $DOUT = $self->maskfilter($DOUT);
+
+    my $DX = $DOUT;
 
     return $DX;
 }

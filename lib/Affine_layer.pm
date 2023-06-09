@@ -74,7 +74,7 @@ sub backward {
     #行方向にsum axis=0
     #$self->{db} = sum($DOUT); # 直訳表記perlではこの機能は無い
     my $DOUT_tmp = $DOUT->copy;
-       $DOUT_tmp = $DOUT_tmp->xchg(0,1); # 列にノードを持ってくる
+    $DOUT_tmp = $DOUT_tmp->xchg(0,1); # 列にノードを持ってくる
     $DOUT_tmp = sumover($DOUT_tmp); # 行をsumする
     $self->{db} = $DOUT_tmp;
 

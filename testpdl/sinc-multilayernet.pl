@@ -35,17 +35,17 @@ my $hidden_size =  [ 100 , 100 ];
 my $output_size = 1;
 my $activation = 'relu';   # relu or sigmoid
 my $waits_init = "he";     # xavier or he
-my $L2norm = 0.9;
+my $L2norm = 0.0;
 my $loss_func = 'mean_squared_error';  # mean_squared_error or cross_entropy_error
 my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm , $loss_func);
 
 my @dims = $all_x->dims;
 my $all_data_size = $dims[0]; # Sincpdlの最初の次元が個数になっているので
 my $pickup_size = 24000; #データのピックアップ数
-my $test_size = 100; #テストデータのピックアップ数
+my $test_size = 1000; #テストデータのピックアップ数
 my $batch_size = 50; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 1000; #エポック数
+my $epoch = 200; #エポック数
 
 my $learn_rate = 0.001; # optimizerで指定する
 my $optimizer = Adam_optimizer->new($learn_rate);
@@ -87,9 +87,13 @@ sub makeindex {
 
 # 学習の繰り返し回数 
 for my $epoch_cnt ( 1 .. $epoch ) {
+    Logging("epoch: $epoch_cnt");
 
     my $x_batch = null;
     my $t_batch = null;
+
+    my $loss_array = [];
+
 =pod
     my $pickup_idx = random($pickup_size); #ピックアップサイズのndarray (復元型抽出）
     my $pickup_idx = random(@index); 
@@ -115,7 +119,7 @@ for my $epoch_cnt ( 1 .. $epoch ) {
         $t_batch = $pickup_T_PDL->range($idx * $batch_size , $batch_size)->sever;
 
 	$x_batch = $x_batch->transpose;
-        #t_batchは1次元なのでパス
+        $t_batch = $t_batch->transpose;
 	#
 	#my @tmp = $x_batch->dims;
 	#&::Logging("DEBUG: x_batch: @tmp");
@@ -127,12 +131,30 @@ for my $epoch_cnt ( 1 .. $epoch ) {
         # 更新 
         $optimizer->update($network->{params} , $grad );
 
+        push(@{$loss_array} , $network->loss($x_batch , $t_batch)); #バッチ単位のlossが　1 epoch分集まる
 	   #  say Dumper $network->{params};
 
-   #     my $loss = $network->loss($x_batch , $t_batch);
-   #  say "itre: $idx loss: $loss ";
+        #  say "itre: $idx loss: $loss ";
 
     } # for $idx
+
+    # エポック毎にloss表示
+    my $avg = undef;
+    for my $PDL (@{$loss_array} ) {
+	    #	print "$PDL ";
+        my @sum = list($PDL);
+           $avg += $sum[0];
+    }
+    #say "";
+    my @tmp = @{$loss_array};
+    my $div = $#tmp + 1;
+    $avg /= $div;
+    Logging("epoch loss: $avg  ($div)");
+
+    undef $div;
+    undef @tmp;
+    undef $loss_array;
+
     
     # testデータの選択 (復元性抽出）
     my $test_idx = random($test_size); #ピックアップサイズのndarray
@@ -144,7 +166,6 @@ for my $epoch_cnt ( 1 .. $epoch ) {
 
     my $train_acc = $network->accuracy($pickup_X_PDL_T , $pickup_T_PDL_T);
     my $test_acc = $network->accuracy($test_X_PDL->transpose , $test_T_PDL->transpose);
-    Logging("epoch: $epoch_cnt");
     Logging("$train_acc | $test_acc");
 
     #ガーベッジコレクション というかシリアライズすると処理速度が低下しない これをしないと、epoch毎に1.5倍の時間がかかる

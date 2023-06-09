@@ -171,12 +171,25 @@ sub gradient {
 
     my $dout = 1;
        $dout = $self->{last_layer}->backward($dout);
-
+=pod
     my @layers = values %{$self->{layers}};
     @layers = reverse @layers; #逆順に並び替える
     for my $layer ( @layers ) {
         $dout = $layer->backward($dout);
     }
+=cut
+    my @keylist; #{layers}のキーを逆順に実行する(IxHash)
+    for my $key ( keys %{$self->{layers}} ) {
+        push(@keylist , $key);
+    }
+    while ( my $key = pop @keylist ) {
+            #  say "gradient: dout: while in $key";
+            #  say $dout->shape;
+        $dout = $self->{layers}->{$key}->backward($dout);
+    }
+    undef @keylist;
+
+
     my $grad = {};
     for my $idx ( 1 .. $self->{hidden_layer_num} + 1) {
         $grad->{"W$idx"} = $self->{layers}->{"Affine$idx"}->dW + $self->{weight_decay_lambda} * $self->{layers}->{"Affine$idx"}->{W};

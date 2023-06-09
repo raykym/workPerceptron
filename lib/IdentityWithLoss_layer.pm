@@ -50,8 +50,14 @@ sub backward {
     my ( $self , $DOUT ) = @_;
     #$DOUT = topdl($DOUT); 
     $DOUT = 1;
+    my @dims = $self->{y}->dims;
+    my $batch_size = $dims[1];
 
-    my $DX = $self->{y};
+    # sincの場合、ラベルがスカラーなので1次元に成るが、それだとバッチ数が正しくならない。。。スカラーでも次元入れ替えで困らないために正しく次元を指定する必要がある。
+    #my $DX = $self->{y};
+    my $DX = ( $self->{y} - $self->{t} ) / $batch_size;
+    #my @dims2 = $DX->dims;
+    #say "Identity backward: DX shape: @dims2";
 
     return $DX;
 }

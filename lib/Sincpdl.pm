@@ -37,7 +37,7 @@ sub make {
                $z = (sin ( sqrt( $x**2 + $y**2 ) ) /  sqrt( $x**2 + $y**2 ));
            }
             push (@{$sample->{input}} , [ $x , $y ]);
-            push (@{$sample->{class}} , $z ); 
+            push (@{$sample->{class}} , [ $z ]); 
 
         } # for y
     } # for x
@@ -46,6 +46,7 @@ sub make {
     my $train_t = pdl($sample->{class});
                                        #  個数 , データ
        $train_x = $train_x->transpose; # ( 40401 , 2 ) に変更
+       $train_t = $train_t->transpose; # ( 40401 , 1 ) に変更
 
     return ( $train_x , $train_t);
 }

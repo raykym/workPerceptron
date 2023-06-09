@@ -57,6 +57,8 @@ sub backward {
     my $batch_size = $dims[1]; # PDLでは列を指定する必要があるはず
 
     my $DX = ( $self->{y} - $self->{t} ) / $batch_size;
+    #my @dims2 = $DX->dims;
+    #say "softmax backward DX shape @dims2";
 
     return $DX;
 }

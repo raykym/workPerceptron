@@ -23,6 +23,7 @@ use lib "$FindBin::Bin::../lib";
 use MultiLayerNet;
 use Adam_optimizer;
 use MnistLoad;
+use Ml_functions;
 
 # 引数にhparamsのファイル名を読み込む
 
@@ -45,14 +46,18 @@ my $hparams = {};
        }
    }
 
-for my $idx ( 0 .. 10 ) {
+my $offset = int(rand(9990));
 
-    my $pice_PDL = $train_x->range($idx);
-    my $pice_t = $train_t->range($idx);
+for my $idx ( $offset .. 10 + $offset ) {
+
+    my $pice_PDL = $test_x->range($idx);
+    my $pice_t = $test_t->range($idx);
 
     my $res = $hparams->{network}->predict($pice_PDL);
 
-    say "$pice_t : $res";
+    my $hotone = Ml_functions::argmax($res);
+
+    say "$pice_t : $res : $hotone";
 
 }
 

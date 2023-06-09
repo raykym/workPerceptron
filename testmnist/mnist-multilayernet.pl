@@ -33,38 +33,26 @@ $test_x = MnistLoad::normalize($test_x);
 $train_t = MnistLoad::chg_hotone($train_t);
 $test_t = MnistLoad::chg_hotone($test_t);
 
-=pod
-say "train x";
-say $train_x->dims;
-say "test x";
-say $test_x->dims;
-say "train t";
-say $train_t->dims;
-say "test t";
-say $test_t->dims;
-
-exit;
-=cut
 
 my @dims_x = $train_x->dims;
 my @dims_t = $train_t->dims;
 
 # パラメータ
-my $input_size = $dims_x[1];
-my $hidden_size =  [ 100 , 100 ];
-my $output_size = $dims_t[1];
+my $input_size = $dims_x[1]; #入力データの長さ numpyとは逆
+my $hidden_size =  [ 500 , 500 , 500 ];
+my $output_size = $dims_t[1]; #出力データの長さ
 my $activation = 'relu';   # relu or sigmoid
 my $waits_init = "he";     # xavier or he
 my $L2norm = 0.0;
-my $loss_func = 'cross_entropy_error';  # mean_squared_error or cross_entropy_error
+my $loss_func = 'cross_entropy_error';  # mean_squared_error(恒等関数) or cross_entropy_error(softmax関数)
 my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm , $loss_func);
 
 my $all_data_size = $dims_x[0]; # Mnistloadの最初の次元が個数になっているので
 my $pickup_size = 20000; #データのピックアップ数
-my $test_size = 1000; #テストデータのピックアップ数
-my $batch_size = 1000; #バッチ数
+my $test_size = 10000; #テストデータのピックアップ数
+my $batch_size = 2000; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 10; #エポック数
+my $epoch = 100; #エポック数
 
 my $learn_rate = 0.001; # optimizerで指定する
 my $optimizer = Adam_optimizer->new($learn_rate);
@@ -112,6 +100,8 @@ for my $epoch_cnt ( 1 .. $epoch ) {
     my $x_batch = null;
     my $t_batch = null;
 
+    my $loss_array = [];
+
     my @index = &makeindex($pickup_size); # 非復元型抽出 エポック単位ではサンプルの重複はしない
     my $pickup_idx = pdl(@index);
     undef @index;
@@ -140,7 +130,23 @@ for my $epoch_cnt ( 1 .. $epoch ) {
         # 更新 
         $optimizer->update($network->{params} , $grad );
 
+	push(@{$loss_array} , $network->loss($x_batch , $t_batch)); #バッチ単位のlossが　1 epoch分集まる
+
     } # for idx
+
+    # エポック毎にloss表示
+    my $avg = undef;
+    for my $PDL (@{$loss_array} ) {
+	my @sum = list($PDL);
+           $avg += $sum[0]; 
+    }
+    my @tmp = @{$loss_array};
+    $avg /= $#tmp + 1;
+    Logging("epoch loss: $avg");
+
+    undef @tmp;
+    undef $loss_array;
+
 
    # testデータの選択 (復元性抽出）
     my $test_idx = random($test_size); #ピックアップサイズのndarray

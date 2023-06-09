@@ -44,15 +44,16 @@ my @dims = $all_x->dims;
 my $all_data_size = $dims[0]; # Sincpdlの最初の次元が個数になっているので
 my $pickup_size = 24000; #データのピックアップ数
 my $test_size = 100; #テストデータのピックアップ数
-my $batch_size = 3000; #バッチ数
+my $batch_size = 50; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 2; #エポック数
+my $epoch = 100; #エポック数
 # L2normはTwoLayerNet.pmで決め打ちなので、そちらを編集する必要がある。
 
 my $learn_rate = 0.001; # optimizerで指定する
 my $optimizer = Adam_optimizer->new($learn_rate);
 
 my $serialize = undef;
+
 
 # サブ ルーチンエリア
 sub Logging {
@@ -90,6 +91,8 @@ sub makeindex {
 # 学習の繰り返し回数 
 for my $epoch_cnt ( 1 .. $epoch ) {
 
+    my $loss_array = [];
+
     my $x_batch = null;
     my $t_batch = null;
 =pod
@@ -117,7 +120,7 @@ for my $epoch_cnt ( 1 .. $epoch ) {
         $t_batch = $pickup_T_PDL->range($idx * $batch_size , $batch_size)->sever;
 
         $x_batch = $x_batch->transpose;
-        #t_batchは1次元なのでパス
+        $t_batch = $t_batch->transpose;
 	#
 	#say "itre: $idx";
 
@@ -130,12 +133,28 @@ for my $epoch_cnt ( 1 .. $epoch ) {
 
 	   #  say Dumper $network->{params};
 
-        my $loss = $network->loss($x_batch , $t_batch);
-	#   $loss /= $batch_size; # なんとなく加えた そういうふうに読めたので
-   #  say "itre: $idx loss: $loss ";
+        push(@{$loss_array} ,  $network->loss($x_batch , $t_batch));
 
     } # for $idx
+
+    # エポック毎にloss表示
+    my $avg = undef;
+    for my $PDL (@{$loss_array} ) {
+            #   print "$PDL ";
+        my @sum = list($PDL);
+           $avg += $sum[0];
+    }
+    #say "";
+    my @tmp = @{$loss_array};
+    my $div = $#tmp + 1;
+    $avg /= $div;
+    Logging("epoch loss: $avg  ($div)");
+
+    undef $div;
+    undef @tmp;
+    undef $loss_array;    
     
+
     # testデータの選択 (復元性抽出）
     my $test_idx = random($test_size); #ピックアップサイズのndarray
        $test_idx = $test_idx * ($all_data_size - 1); # 最大値は全データ個数

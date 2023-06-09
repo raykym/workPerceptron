@@ -213,7 +213,7 @@ sub train {
             $t_batch = $pickup_T_PDL->range($idx * $self->{batch_size} , $self->{batch_size})->sever;
 
 	    $x_batch = $x_batch->transpose;
-            #t_batchは1次元なのでパス
+            $t_batch = $t_batch->transpose;
 
             # 傾き計算
 	    my $grad = $self->{network}->gradient($x_batch , $t_batch);
