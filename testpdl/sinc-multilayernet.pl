@@ -45,7 +45,7 @@ my $pickup_size = 24000; #データのピックアップ数
 my $test_size = 1000; #テストデータのピックアップ数
 my $batch_size = 50; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 200; #エポック数
+my $epoch = 500; #エポック数
 
 my $learn_rate = 0.001; # optimizerで指定する
 my $optimizer = Adam_optimizer->new($learn_rate);

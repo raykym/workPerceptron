@@ -153,7 +153,7 @@ sub numerical_gradient {
 # 自作
 # numPyのメソッドをここに作成
 # 最大値のインデックスを返す
-# pythonのaxis=1方向  列基準
+# pythonのaxis=1方向  列基準 ->　入力と同じ形のインデックスが返る
 sub argmax {
     my $X  = shift;
        $X = topdl($X);

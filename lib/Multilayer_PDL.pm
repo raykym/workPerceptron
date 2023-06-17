@@ -3,6 +3,7 @@ package Multilayer_PDL;
 #
 # PDLの行列演算を利用したマルチパーセプトロン
 # ゼロから作るDeep Leaningを元に作成
+# 練習内容を書いたので、ここは利用しない。。。
 
 use Carp;
 use PDL;

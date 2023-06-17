@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-# twolayernetを使って数値微分とバックプロパゲーションを比較する
+# MNSITをMultiLayerNetで学習を試す
 
 use v5.32;
 use utf8;
@@ -43,7 +43,7 @@ my $hidden_size =  [ 500 , 500 , 500 ];
 my $output_size = $dims_t[1]; #出力データの長さ
 my $activation = 'relu';   # relu or sigmoid
 my $waits_init = "he";     # xavier or he
-my $L2norm = 0.0;
+my $L2norm = 0.9;
 my $loss_func = 'cross_entropy_error';  # mean_squared_error(恒等関数) or cross_entropy_error(softmax関数)
 my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm , $loss_func);
 
