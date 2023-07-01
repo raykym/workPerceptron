@@ -152,11 +152,12 @@ for my $epoch_cnt ( 1 .. $epoch ) {
     undef @tmp;
     undef $loss_array;
 
-
    # testデータの選択 (復元性抽出）
+    my @dims = $test_x->dims;
     my $test_idx = random($test_size); #ピックアップサイズのndarray
-       $test_idx = $test_idx * 9999; # mnistはテストデータが1万個別だてなのでall_data_sizeではない
+       $test_idx = $test_idx * ($dims[0] - 1); 
        $test_idx = convert($test_idx,long); # 整数に
+    undef @dims;
 
     my $test_X_PDL = $test_x->index1d($test_idx)->sever;
     my $test_T_PDL = $test_t->index1d($test_idx)->sever;

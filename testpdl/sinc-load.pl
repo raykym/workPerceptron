@@ -18,11 +18,12 @@ use PDL::IO::Storable;
 use FindBin;
 use lib "$FindBin::Bin::../lib";
 use TwoLayerNet;
+use MultiLayerNet;
 use Adam_optimizer;
 
 my $hparams = {};
-
-   $hparams = retrieve('twolayernet.hparams');
+   # 引数のファイル名を展開する
+   $hparams = retrieve($ARGV[0]);
 
    for my $key (keys %{$hparams} ) {
 
@@ -36,8 +37,8 @@ my $hparams = {};
    }
 
    open ( my $fh , '>' , './sinc_plotdata.txt');
-   for ( my $x = -10 ; $x <= 10 ; $x++  ) {
-       for ( my $y = -10 ; $y <= 10 ; $y++  ) {
+   for ( my $x = -20 ; $x <= 20 ; $x++  ) {
+       for ( my $y = -20 ; $y <= 20 ; $y++  ) {
            my $RET = $hparams->{network}->predict(pdl([ $x , $y ]));
            #say "(loss)RET: $RET";
            my @out = list($RET);

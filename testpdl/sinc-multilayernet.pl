@@ -22,6 +22,7 @@ use MultiLayerNet;
 use Adam_optimizer;
 
 use Data::Dumper;
+use List::Util;
 
 use Storable qw/ freeze thaw store retrieve/;
 use PDL::IO::Storable;
@@ -35,7 +36,7 @@ my $hidden_size =  [ 100 , 100 ];
 my $output_size = 1;
 my $activation = 'relu';   # relu or sigmoid
 my $waits_init = "he";     # xavier or he
-my $L2norm = 0.0;
+my $L2norm = 0.1;
 my $loss_func = 'mean_squared_error';  # mean_squared_error or cross_entropy_error
 my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm , $loss_func);
 
@@ -140,11 +141,14 @@ for my $epoch_cnt ( 1 .. $epoch ) {
 
     # エポック毎にloss表示
     my $avg = undef;
+       $avg = List::Util::sum(@{$loss_array});
+=pod
     for my $PDL (@{$loss_array} ) {
 	    #	print "$PDL ";
         my @sum = list($PDL);
            $avg += $sum[0];
     }
+=cut
     #say "";
     my @tmp = @{$loss_array};
     my $div = $#tmp + 1;

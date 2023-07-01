@@ -3,7 +3,7 @@
 # sincを学習して再現性を試す。　普遍性の実験
 # tainerクラスを作る
 # 速度低下の問題が発生。。。原因がわからない。。。。編集残しで$networkを使っていたため、書き直して完了
-# どうにも、問題なさそうだけど警告が最後に出る。
+# どうにも、問題なさそうだけど警告が最後に出る。->storeコマンドで発生している　データ的には問題はない
 
 use v5.32;
 use utf8;
@@ -25,8 +25,10 @@ use Sincpdl;
 use MultiLayerNet;
     # last_layerについては直接書き換えが必要
 use Adam_optimizer;
+#use Trainer;
 
 use Data::Dumper;
+use List::Util;
 
 use Storable qw/ freeze thaw store retrieve/;
 use PDL::IO::Storable;
@@ -41,7 +43,7 @@ my $output_size = 1;
 my $activation = 'relu';
 my $waits_init = "he";
 my $L2norm = 0.1;
-my $loss_func = 'mean_sqared_error';
+my $loss_func = 'mean_squared_error';
 #my $network = TwoLayerNet->new($input_size , $hidden_size , $output_size , $waits_init , $L2norm );
 my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $activation , $waits_init , $L2norm , $loss_func);
     # input_size , hidden_size , output_size , waits_init , weight_decay_rambda
@@ -49,16 +51,19 @@ my $network = MultiLayerNet->new($input_size , $hidden_size , $output_size , $ac
 
 my @dims = $all_x->dims;
 my $all_data_size = $dims[0]; # Sincpdlの最初の次元が個数になっているので
-my $pickup_size = 12000; #データのピックアップ数
-my $test_size = 100; #テストデータのピックアップ数
+my $pickup_size = 24000; #データのピックアップ数
+my $test_size = 1000; #テストデータのピックアップ数
 my $batch_size = 100; #バッチ数
 my $itre = $pickup_size / $batch_size ; # イテレーター数
-my $epoch = 5; #エポック数
+my $epoch = 500; #エポック数
 
 my $learn_rate = 0.001; # optimizerで指定する
 my $optimizer = Adam_optimizer->new($learn_rate);
 
 my $serialize = undef;
+
+my $verbose = 1;
+
 
 # サブ ルーチンエリア
 sub Logging {
@@ -72,7 +77,9 @@ sub Logging {
         return;
 }
 
+# ローカルパッケージ
 my $trainer = Trainer->new($network , $all_x , $all_t , $epoch , $batch_size , $optimizer , $pickup_size , $test_size);
+# 上手く学習出来ていない。。。
 
    $trainer->train;
 
@@ -81,10 +88,10 @@ my $string_hidden = join('_' , @{$hidden_size});
 # 学習後に元データを入力して再現性を確認する
    open ( my $fh , '>' , "./sinc_plotdata.txt_U${string_hidden}_b${batch_size}_ep${epoch}_L2norm${L2norm}_pic${pickup_size}_lr${learn_rate}_$activation");
     # x,yを与えて結果をまとめてファイル出力,gnuplotで利用する
-
+    # 意図的に範囲を広げて汎用性を確認する
     for ( my $x = -10 ; $x <= 10 ; $x++  ) {
         for ( my $y = -10 ; $y <= 10 ; $y++  ) {
-            my $RET = $network->predict(pdl([ $x , $y ])); 
+            my $RET = $trainer->{network}->predict(pdl([ $x , $y ]));  # mainスコープの$networkでは学習結果を利用できない。trainerから学習済みのnetworkにアクセスする必要がある。
 	    #say "(loss)RET: $RET";
 	    my @out = list($RET);
             say $fh " $x $y $out[0] ";
@@ -116,7 +123,6 @@ my $string_hidden = join('_' , @{$hidden_size});
      sleep 1;
 
      exit;
-
 
 
 
@@ -153,7 +159,7 @@ sub new {
        $self->{itre} = $pickup_size / $batch_size ; # イテレーター数
 
     bless $self , $class;
-=pod
+
     undef $network;
     undef $all_x;
     undef $all_t;
@@ -162,7 +168,7 @@ sub new {
     undef $optimizer;
     undef $pickup_size;
     undef $test_size;
-=cut
+
     return $self;
 }
 
@@ -191,9 +197,12 @@ sub train {
 
     # 学習の繰り返し回数 
     for my $epoch_cnt ( 1 .. $self->{epoch} ) {
+        &::Logging("epoch: $epoch_cnt");
 
         my $x_batch = null;
         my $t_batch = null;
+        my $loss_array = [];
+
         my @index = $self->makeindex(); # 非復元型抽出 エポック単位ではサンプルの重複はしない
         my $pickup_idx = pdl(@index);
         undef @index;
@@ -220,11 +229,31 @@ sub train {
 	    #my $grad = $self->{network}->numerical_gradient($x_batch , $t_batch);
 
             # 更新 
-            $self->{optimizer}->update($network->{params} , $grad );
+            $self->{optimizer}->update($self->{network}->{params} , $grad );
 
-	    #my $loss = $network->loss($x_batch , $t_batch);
+	    push(@{$loss_array} , $self->{network}->loss($x_batch , $t_batch));
 
         } # for $idx
+
+        # エポック毎にloss表示
+        my $avg = undef;
+           $avg = List::Util::sum(@{$loss_array});
+=pod
+        for my $PDL (@{$loss_array} ) {
+            #   print "$PDL ";
+            my @sum = list($PDL);
+               $avg += $sum[0];
+        }
+=cut
+        #say "";
+        my @tmp = @{$loss_array};
+        my $div = $#tmp + 1;
+        $avg /= $div;
+        &::Logging("epoch loss: $avg  ($div)");
+
+        undef $div;
+        undef @tmp;
+        undef $loss_array;
 
 
         # testデータの選択 (復元性抽出）
@@ -237,7 +266,6 @@ sub train {
 
         my $train_acc = $self->{network}->accuracy($pickup_X_PDL_T , $pickup_T_PDL_T);
         my $test_acc = $self->{network}->accuracy($test_X_PDL->transpose , $test_T_PDL->transpose);
-        &::Logging("epoch: $epoch_cnt");
         &::Logging("$train_acc | $test_acc");
 
         #ガーベッジコレクション というかシリアライズすると処理速度が低下しない epoch毎に1.5倍の時間がかかる
@@ -264,6 +292,7 @@ sub train {
 
     } # for epoch 
 
+    return $self;
 } 
 
 

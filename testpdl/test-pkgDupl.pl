@@ -53,6 +53,7 @@ say $test_l(0);
 
     say "ref train_x";
     say ref $train_x;
+    say \$train_x;
 
     my $pkg1 = Pkg1->new($train_x , $train_l);
 
@@ -90,17 +91,18 @@ sub doSomething {
     say "method doSomething";
     say $self->{train_x}->shape;
     say $self->{train_l}->dims;
+    say \$self->{train_x};
 
     my @tmp = ( 1 );
     my $pdl = pdl(@tmp);
     say $pdl;
     # ->index1dはPDL::Slicesに含まれるが、関数引き渡しではPDL::Core以外は引き継げないらしい。
-　　# ここのパッケージ内で初期宣言されるとPDL::Slicesもまとめられるが、引き継ぎでは機能を持ち合わせていない。。。。。
+    # ここのパッケージ内で初期宣言されるとPDL::Slicesもまとめられるが、引き継ぎでは機能を持ち合わせていない。。。。。
     # mainスコープでは宣言は省略されていたが、関数に引き継いだ場合は個別にuse宣言しないと使えない。。。。
-    say $self->{train_x}->index1d($pdl);
+    #say $self->{train_x}->index1d($pdl);
 
     # $tain_x->index1d()ならパッケージ内にuse宣言が無くても利用が可能。
-　　# PDLはmain関数でグローバル変数として宣言したほうがメモリー効率は良いのだろうけど、
+    # PDLはmain関数でグローバル変数として宣言したほうがメモリー効率は良いのだろうけど、
     # 処理毎に分離して考えるなら、core以外は都度useするしか無いか。。。
 
 }
